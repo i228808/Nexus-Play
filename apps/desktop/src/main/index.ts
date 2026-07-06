@@ -16,7 +16,9 @@ import {
   deleteGame,
   searchMetadataForGame,
   applyGameMetadata,
-  updateGameTitle
+  updateGameTitle,
+  installGame,
+  uninstallGame
 } from './services/gameService.ts';
 import { getAssetCacheDir } from './services/metadataService.ts';
 import { getControllerBatteryInfo } from './services/batteryService.ts';
@@ -176,6 +178,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('games:applyMetadata', async (_, gameId: string, sgdbGameId: number, gameTitle: string) => {
     return applyGameMetadata(gameId, sgdbGameId, gameTitle);
+  });
+
+  ipcMain.handle('games:install', async (_, id: string) => {
+    return installGame(id);
+  });
+
+  ipcMain.handle('games:uninstall', async (_, id: string) => {
+    return uninstallGame(id);
   });
 
   ipcMain.handle('games:updateTitle', async (_, id: string, title: string) => {

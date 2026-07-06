@@ -19,44 +19,9 @@ export class LegendaryPlugin implements LibraryPlugin {
   async scan(): Promise<DetectedGame[]> {
     const detectedGames: DetectedGame[] = [];
 
-    // Approach 1: Try reading installed.json directly (offline, fast, no sub-processes)
-    const home = process.env.HOME || '';
-    const configPath = path.join(home, '.config', 'legendary', 'installed.json');
-
-    try {
-      const fileContent = await fs.readFile(configPath, 'utf-8');
-      const data = JSON.parse(fileContent);
-      
-      const gamesList = Array.isArray(data) ? data : Object.values(data);
-
-      for (const game of gamesList as any[]) {
-        const appName = game.app_name;
-        const title = game.title;
-        const installPath = game.install_path;
-        const executable = game.executable;
-        const platform = game.platform || 'win32';
-
-        if (!appName || !title) continue;
-
-        detectedGames.push({
-          externalId: appName,
-          title: title,
-          source: 'legendary',
-          installPath: installPath,
-          executablePath: executable,
-          launchCommand: `legendary launch ${appName}`,
-          platform: platform === 'win32' || platform === 'windows' ? 'windows' : 'linux',
-          installed: true
-        });
-      }
-      return detectedGames;
-    } catch (err) {
-      // Direct file read failed or not found, fallback to CLI command
-    }
-
-    // Approach 2: Run CLI list command
+    // Run CLI list command for ALL games
     return new Promise((resolve) => {
-      exec('legendary list-installed --json', (err, stdout) => {
+      exec('legendary list --json', async (err, stdout) => {
         if (err || !stdout) {
           resolve([]);
           return;
@@ -66,12 +31,29 @@ export class LegendaryPlugin implements LibraryPlugin {
           const data = JSON.parse(stdout);
           const gamesList = Array.isArray(data) ? data : Object.values(data);
           
+          // Get installed games from config to mark installation status
+          const home = process.env.HOME || '';
+          const configPath = path.join(home, '.config', 'legendary', 'installed.json');
+          let installedSet = new Set<string>();
+          
+          try {
+            const installedContent = await fs.readFile(configPath, 'utf-8');
+            const installedData = JSON.parse(installedContent);
+            const installedArray = Array.isArray(installedData) ? installedData : Object.values(installedData);
+            for (const item of installedArray as any[]) {
+              if (item.app_name) installedSet.add(item.app_name);
+            }
+          } catch (e) {
+            // Ignore if installed.json is missing
+          }
+
           for (const game of gamesList as any[]) {
             const appName = game.app_name;
-            const title = game.title;
-            const installPath = game.install_path;
-            const executable = game.executable;
-            const platform = game.platform || 'win32';
+            const title = game.app_title || game.title;
+            const isInstalled = installedSet.has(appName);
+            // Default executable is just a placeholder since Legendary handles the launch internally
+            const executable = game.executable || '';
+            const platform = 'windows';
 
             if (!appName || !title) continue;
 
@@ -79,15 +61,15 @@ export class LegendaryPlugin implements LibraryPlugin {
               externalId: appName,
               title: title,
               source: 'legendary',
-              installPath: installPath,
+              installPath: isInstalled ? '<installed>' : undefined,
               executablePath: executable,
               launchCommand: `legendary launch ${appName}`,
-              platform: platform === 'win32' || platform === 'windows' ? 'windows' : 'linux',
-              installed: true
+              platform: platform,
+              installed: isInstalled
             });
           }
         } catch (e) {
-          console.error('[Legendary Plugin] Error parsing list-installed JSON output', e);
+          console.error('[Legendary Plugin] Error parsing list JSON output', e);
         }
         resolve(detectedGames);
       });

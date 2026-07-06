@@ -10,6 +10,8 @@ import {
   Search,
   X,
   Battery,
+  Download,
+  Trash2
 } from 'lucide-react';
 
 // ─── Source icons & branding ─────────────────────────────────────────────────
@@ -125,13 +127,15 @@ interface ConsoleModeProps {
   games: Game[];
   controllers: any[];
   onLaunch: (id: string) => void;
+  onInstall: (id: string) => void;
+  onUninstall: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onDeleteGame?: (id: string) => Promise<any>;
   onClose: () => void;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function ConsoleMode({ games, controllers, onLaunch, onToggleFavorite, onDeleteGame, onClose }: ConsoleModeProps) {
+export default function ConsoleMode({ games, controllers, onLaunch, onInstall, onUninstall, onToggleFavorite, onDeleteGame, onClose }: ConsoleModeProps) {
   // All navigation state in refs so gamepad handler is never stale
   const catIndexRef  = useRef(0);
   const gameIndexRef = useRef(0);
@@ -350,22 +354,41 @@ export default function ConsoleMode({ games, controllers, onLaunch, onToggleFavo
               </div>
 
               <div className="flex gap-3 mb-10">
-                <button
-                  onClick={() => {
-                    if (launchingRef.current) return;
-                    launchingRef.current = true; setLaunching(true);
-                    onLaunch(selectedGame.id);
-                    setTimeout(() => { launchingRef.current = false; setLaunching(false); }, 3000);
-                  }}
-                  disabled={launching}
-                  className="flex items-center gap-3 pl-6 pr-8 py-3.5 rounded-2xl bg-white text-black font-black text-base shadow-2xl shadow-white/5 hover:bg-white/90 active:scale-95 transition-all duration-100 disabled:opacity-50"
-                >
-                  {launching
-                    ? <span className="w-5 h-5 rounded-full border-2 border-black/20 border-t-black animate-spin" />
-                    : <Play className="w-5 h-5 fill-black" />
-                  }
-                  {launching ? 'Launching…' : 'Play Now'}
-                </button>
+                {selectedGame.installed ? (
+                  <button
+                    onClick={() => {
+                      if (launchingRef.current) return;
+                      launchingRef.current = true; setLaunching(true);
+                      onLaunch(selectedGame.id);
+                      setTimeout(() => { launchingRef.current = false; setLaunching(false); }, 3000);
+                    }}
+                    disabled={launching}
+                    className="flex items-center gap-3 pl-6 pr-8 py-3.5 rounded-2xl bg-white text-black font-black text-base shadow-2xl shadow-white/5 hover:bg-white/90 active:scale-95 transition-all duration-100 disabled:opacity-50"
+                  >
+                    {launching
+                      ? <span className="w-5 h-5 rounded-full border-2 border-black/20 border-t-black animate-spin" />
+                      : <Play className="w-5 h-5 fill-black" />
+                    }
+                    {launching ? 'Launching…' : 'Play Now'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (launchingRef.current) return;
+                      launchingRef.current = true; setLaunching(true);
+                      onInstall(selectedGame.id);
+                      setTimeout(() => { launchingRef.current = false; setLaunching(false); }, 3000);
+                    }}
+                    disabled={launching}
+                    className="flex items-center gap-3 pl-6 pr-8 py-3.5 rounded-2xl bg-blue-500 text-white font-black text-base shadow-2xl shadow-blue-500/20 hover:bg-blue-400 active:scale-95 transition-all duration-100 disabled:opacity-50"
+                  >
+                    {launching
+                      ? <span className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                      : <Download className="w-5 h-5 text-white" />
+                    }
+                    {launching ? 'Installing…' : 'Install Game'}
+                  </button>
+                )}
                 <button
                   onClick={() => onToggleFavorite(selectedGame.id)}
                   className={`p-3.5 rounded-2xl border transition-all active:scale-95 duration-100 ${
@@ -377,6 +400,20 @@ export default function ConsoleMode({ games, controllers, onLaunch, onToggleFavo
                 >
                   <Star className={`w-5 h-5 ${selectedGame.favorite ? 'fill-yellow-400' : ''}`} />
                 </button>
+                {selectedGame.installed && selectedGame.source !== 'manual' && selectedGame.source !== 'rom' && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to uninstall "${selectedGame.title}"?`)) {
+                        onUninstall(selectedGame.id);
+                        setView('shelf');
+                      }
+                    }}
+                    className="p-3.5 rounded-2xl border bg-red-950/20 border-red-500/20 text-red-400 hover:text-red-300 hover:border-red-500/40 transition-all active:scale-95 duration-100"
+                    title="Uninstall Game"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
                 {onDeleteGame && (
                   <button
                     onClick={async () => {

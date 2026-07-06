@@ -1,6 +1,6 @@
 import { getDb } from '../db/index.ts';
 import { games, gameMetadata, launchProfiles } from '../db/schema.ts';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and, notInArray } from 'drizzle-orm';
 import { SteamPlugin, LegendaryPlugin, ManualPlugin, EmulatorPlugin } from '@nexus-play/plugins';
 import { Game, normalizeTitle } from '@nexus-play/core';
 import { log } from './logger.ts';
@@ -138,6 +138,19 @@ export async function scanSources(): Promise<{ steam: number; legendary: number;
         }
         steamCount++;
       }
+
+      // Mark any steam games no longer detected as uninstalled
+      const scannedSteamIds = steamGames.map(sg => `steam:${sg.externalId}`);
+      if (scannedSteamIds.length > 0) {
+        await db.update(games)
+          .set({ installed: false })
+          .where(and(eq(games.source, 'steam'), notInArray(games.id, scannedSteamIds)));
+      } else {
+        await db.update(games)
+          .set({ installed: false })
+          .where(eq(games.source, 'steam'));
+      }
+
     } else {
       log('scanner', 'Steam client not detected.');
     }
@@ -476,19 +489,68 @@ async function savePlaytime(gameId: string, durationSeconds: number) {
   }
 }
 
-// ─── Delete a game entry from the library ────────────────────────────────────
 export async function deleteGame(id: string): Promise<{ success: boolean; error?: string }> {
   try {
     const db = getDb();
     const rows = await db.select().from(games).where(eq(games.id, id));
     if (rows.length === 0) return { success: false, error: 'Game not found' };
 
-    // ON DELETE CASCADE handles metadata/assets/profiles
     await db.delete(games).where(eq(games.id, id));
     log('main', `Deleted game ${id}`);
     return { success: true };
   } catch (err: any) {
     log('main', `Failed to delete game ${id}: ${err.message}`, 'ERROR');
+    return { success: false, error: err.message };
+  }
+}
+
+export async function installGame(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = getDb();
+    const rows = await db.select().from(games).where(eq(games.id, id));
+    if (rows.length === 0) return { success: false, error: 'Game not found' };
+    const game = rows[0] as Game;
+
+    if (game.source === 'steam') {
+      exec(`steam steam://install/${game.externalId}`);
+      return { success: true };
+    } else if (game.source === 'legendary') {
+      const settings = await getSettings();
+      const exe = settings.legendaryPath || 'legendary';
+      exec(`"${exe}" install ${game.externalId} -y`);
+      return { success: true };
+    }
+    return { success: false, error: 'Install not supported for this source' };
+  } catch (err: any) {
+    log('main', `Install failed for ${id}: ${err.message}`, 'ERROR');
+    return { success: false, error: err.message };
+  }
+}
+
+export async function uninstallGame(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = getDb();
+    const rows = await db.select().from(games).where(eq(games.id, id));
+    if (rows.length === 0) return { success: false, error: 'Game not found' };
+    const game = rows[0] as Game;
+
+    if (game.source === 'steam') {
+      exec(`steam steam://uninstall/${game.externalId}`);
+      // Steam handles its own uninstall UI, we will wait for a scan to update the DB.
+      return { success: true };
+    } else if (game.source === 'legendary') {
+      const settings = await getSettings();
+      const exe = settings.legendaryPath || 'legendary';
+      exec(`"${exe}" uninstall ${game.externalId} -y`, async (err) => {
+        if (!err) {
+          await db.update(games).set({ installed: false }).where(eq(games.id, id));
+        }
+      });
+      return { success: true };
+    }
+    return { success: false, error: 'Uninstall not supported for this source' };
+  } catch (err: any) {
+    log('main', `Uninstall failed for ${id}: ${err.message}`, 'ERROR');
     return { success: false, error: err.message };
   }
 }

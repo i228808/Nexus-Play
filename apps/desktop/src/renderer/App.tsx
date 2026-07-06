@@ -23,7 +23,10 @@ import {
   CheckCircle,
   AlertCircle,
   Battery,
-  BatteryCharging
+  BatteryCharging,
+  Download,
+  Trash2,
+  Eye
 } from 'lucide-react';
 
 const getGameCoverUrl = (game: any) => {
@@ -264,6 +267,26 @@ export default function App() {
     const res = await launchGame(id);
     if (!res.success) {
       setLaunchError(res.error || 'Unknown error launching game');
+    }
+  };
+
+  const handleInstall = async (id: string) => {
+    setLaunchError(null);
+    const res = await window.nexus.games.install(id);
+    if (!res.success) {
+      setLaunchError(res.error || 'Unknown error installing game');
+    } else {
+      loadGames();
+    }
+  };
+
+  const handleUninstall = async (id: string) => {
+    setLaunchError(null);
+    const res = await window.nexus.games.uninstall(id);
+    if (!res.success) {
+      setLaunchError(res.error || 'Unknown error uninstalling game');
+    } else {
+      loadGames();
     }
   };
 
@@ -1094,13 +1117,23 @@ export default function App() {
                   
                   {/* Launch Button Section */}
                   <div className="flex flex-col gap-2">
-                    <button 
-                      onClick={() => handleLaunch(selectedGameDetail.game.id)}
-                      className="w-full glow-btn py-3.5 text-sm font-bold flex items-center justify-center gap-2"
-                    >
-                      <Play className="w-4 h-4 fill-current" />
-                      Launch Game
-                    </button>
+                    {selectedGameDetail.game.installed ? (
+                      <button 
+                        onClick={() => handleLaunch(selectedGameDetail.game.id)}
+                        className="w-full glow-btn py-3.5 text-sm font-bold flex items-center justify-center gap-2"
+                      >
+                        <Play className="w-4 h-4 fill-current" />
+                        Launch Game
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => handleInstall(selectedGameDetail.game.id)}
+                        className="w-full glow-btn py-3.5 text-sm font-bold flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 shadow-blue-900/50"
+                      >
+                        <Download className="w-4 h-4" />
+                        Install Game
+                      </button>
+                    )}
                     {launchError && (
                       <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg flex items-center gap-2 text-xs text-red-300">
                         <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -1128,9 +1161,23 @@ export default function App() {
                         onClick={() => toggleHide(selectedGameDetail.game.id)}
                         className="flex-1 py-2 px-3 rounded-lg border border-slate-850 bg-dark-900/40 text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2"
                       >
-                        <EyeOff className="w-3.5 h-3.5" />
-                        Hide Game
+                        {selectedGameDetail.game.hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        {selectedGameDetail.game.hidden ? 'Unhide' : 'Hide'}
                       </button>
+
+                      {selectedGameDetail.game.installed && selectedGameDetail.game.source !== 'manual' && selectedGameDetail.game.source !== 'rom' && (
+                        <button 
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to uninstall ${selectedGameDetail.game.title}?`)) {
+                              handleUninstall(selectedGameDetail.game.id);
+                            }
+                          }}
+                          className="flex-1 py-2 px-3 rounded-lg border border-red-900/30 bg-red-950/20 text-xs font-semibold text-red-400 hover:text-red-300 hover:border-red-900/50 flex items-center justify-center gap-2"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Uninstall
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -1384,6 +1431,8 @@ export default function App() {
           games={games}
           controllers={controllers}
           onLaunch={handleLaunch}
+          onInstall={handleInstall}
+          onUninstall={handleUninstall}
           onToggleFavorite={toggleFavorite}
           onDeleteGame={deleteGame}
           onClose={() => setConsoleMode(false)}

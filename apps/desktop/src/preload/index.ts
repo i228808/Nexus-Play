@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('nexus', {
       ipcRenderer.invoke('games:applyMetadata', gameId, sgdbGameId, gameTitle),
     updateTitle: (id: string, title: string) =>
       ipcRenderer.invoke('games:updateTitle', id, title),
+    install: (id: string) => ipcRenderer.invoke('games:install', id),
+    uninstall: (id: string) => ipcRenderer.invoke('games:uninstall', id),
   },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),

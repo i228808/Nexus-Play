@@ -267,6 +267,8 @@ interface NexusAPI {
     searchMetadata(query: string): Promise<{ id: number; name: string; releaseDate?: string; types: string[] }[]>;
     applyMetadata(gameId: string, sgdbGameId: number, gameTitle: string): Promise<{ success: boolean; error?: string }>;
     updateTitle(id: string, title: string): Promise<{ success: boolean; error?: string }>;
+    install(id: string): Promise<{ success: boolean; error?: string }>;
+    uninstall(id: string): Promise<{ success: boolean; error?: string }>;
   };
   settings: {
     get(): Promise<AppSettings>;
