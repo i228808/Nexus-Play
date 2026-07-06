@@ -1,0 +1,21 @@
+{
+  "name": "nexus-play-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unified Electron Game Launcher for Linux",
+  "workspaces": [
+    "apps/desktop",
+    "packages/core",
+    "packages/plugins"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/desktop",
+    "build": "npm run build --workspace=apps/desktop",
+    "package": "npm run package --workspace=apps/desktop",
+    "db:generate": "npm run db:generate --workspace=apps/desktop",
+    "db:push": "npm run db:push --workspace=apps/desktop"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

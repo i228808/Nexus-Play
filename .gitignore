@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-electron/
+*.db
+*.db-journal
+*.log
+.DS_Store
+.env
+.idea/
+.vscode/
+out/
+build/

@@ -1,0 +1,35 @@
+import { contextBridge, ipcRenderer } from 'electron';
+
+contextBridge.exposeInMainWorld('nexus', {
+  games: {
+    list: () => ipcRenderer.invoke('games:list'),
+    get: (id: string) => ipcRenderer.invoke('games:get', id),
+    scanSources: () => ipcRenderer.invoke('games:scanSources'),
+    launch: (id: string) => ipcRenderer.invoke('games:launch', id),
+    toggleFavorite: (id: string) => ipcRenderer.invoke('games:toggleFavorite', id),
+    toggleHide: (id: string) => ipcRenderer.invoke('games:toggleHide', id),
+    addManual: (gameData: {
+      title: string;
+      launchCommand: string;
+      installPath?: string;
+      executablePath?: string;
+      platform?: 'linux' | 'windows' | 'emulated' | 'web';
+    }) => ipcRenderer.invoke('games:addManual', gameData),
+    delete: (id: string) => ipcRenderer.invoke('games:delete', id),
+    searchMetadata: (query: string) => ipcRenderer.invoke('games:searchMetadata', query),
+    applyMetadata: (gameId: string, sgdbGameId: number, gameTitle: string) =>
+      ipcRenderer.invoke('games:applyMetadata', gameId, sgdbGameId, gameTitle),
+    updateTitle: (id: string, title: string) =>
+      ipcRenderer.invoke('games:updateTitle', id, title),
+  },
+  settings: {
+    get: () => ipcRenderer.invoke('settings:get'),
+    update: (patch: any) => ipcRenderer.invoke('settings:update', patch),
+  },
+  logs: {
+    get: (file: 'main' | 'scanner' | 'launcher' | 'metadata') => ipcRenderer.invoke('logs:get', file),
+  },
+  controllers: {
+    getBatteryInfo: () => ipcRenderer.invoke('controllers:getBatteryInfo'),
+  }
+});
