@@ -12,6 +12,6 @@ npm run build
 
 # 2. Package AppImage specifically
 echo "=== [AppImage Builder] Running electron-builder AppImage target ==="
-npx electron-builder --linux AppImage --project=apps/desktop
+npx electron-builder --linux AppImage --project=apps/desktop -c.electronVersion=29.1.0
 
 echo "=== [AppImage Builder] Done. AppImage generated in apps/desktop/dist/ ==="
