@@ -49,6 +49,7 @@ function createWindow() {
     minWidth: 950,
     minHeight: 600,
     title: 'Nexus Play',
+    icon: path.join(__dirname, '../../build/icon.png'),
     frame: true, // Use system frame for stable close/min buttons, can style inside
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),

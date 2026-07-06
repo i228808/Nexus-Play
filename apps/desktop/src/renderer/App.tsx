@@ -4,6 +4,7 @@ import {
 } from './stores/launcherStore.ts';
 import ConsoleMode from './ConsoleMode.tsx';
 import { useGamepad } from './hooks/useGamepad.ts';
+import logo from './assets/logo.png';
 import { 
   Play, 
   Gamepad2, 
@@ -403,8 +404,8 @@ export default function App() {
         <div className="flex flex-col gap-8">
           {/* Logo */}
           <div className="flex items-center gap-3 px-2">
-            <div className="p-2 bg-gradient-to-tr from-accent to-accent-purple rounded-lg shadow-lg shadow-blue-500/20 text-white">
-              <Gamepad2 className="w-6 h-6 animate-pulse" />
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-accent/20 flex items-center justify-center">
+              <img src={logo} alt="Nexus Play Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h1 className="font-bold text-lg text-white leading-none">Nexus Play</h1>
