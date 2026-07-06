@@ -111,7 +111,7 @@ export default function App() {
   const [backgroundImage, setBackgroundImage] = useState('');
 
   useGamepad({
-    onAction: (action) => {
+    onAction: () => {
       // Do nothing globally for now to avoid conflicting with Steam's Guide button
     },
     enabled: true,
