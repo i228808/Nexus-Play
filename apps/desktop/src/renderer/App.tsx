@@ -62,6 +62,7 @@ export default function App() {
     updateSettings,
     scanSources,
     launchGame,
+    stopGame,
     toggleFavorite,
     toggleHide,
     addManualGame,
@@ -77,6 +78,7 @@ export default function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const [playingGameId, setPlayingGameId] = useState<string | null>(null);
 
   // Manual Game Fields
   const [manualTitle, setManualTitle] = useState('');
@@ -274,8 +276,18 @@ export default function App() {
   const handleLaunch = async (id: string) => {
     setLaunchError(null);
     const res = await launchGame(id);
-    if (!res.success) {
-      setLaunchError(res.error || 'Unknown error launching game');
+    if (res.success) {
+      setLaunchError(null);
+      setPlayingGameId(id);
+    } else {
+      setLaunchError(res.error || 'Failed to launch game');
+    }
+  };
+
+  const handleStop = async (id: string) => {
+    const res = await stopGame(id);
+    if (res.success) {
+      setPlayingGameId(null);
     }
   };
 
@@ -1172,13 +1184,23 @@ export default function App() {
                   {/* Launch Button Section */}
                   <div className="flex flex-col gap-2">
                     {selectedGameDetail.game.installed ? (
-                      <button 
-                        onClick={() => handleLaunch(selectedGameDetail.game.id)}
-                        className="w-full glow-btn py-3.5 text-sm font-bold flex items-center justify-center gap-2"
-                      >
-                        <Play className="w-4 h-4 fill-current" />
-                        Launch Game
-                      </button>
+                      playingGameId === selectedGameDetail.game.id ? (
+                        <button 
+                          onClick={() => handleStop(selectedGameDetail.game.id)}
+                          className="w-full bg-red-600 hover:bg-red-500 py-3.5 text-sm font-bold flex items-center justify-center gap-2 rounded-lg text-white shadow-lg shadow-red-900/50 transition-all"
+                        >
+                          <X className="w-4 h-4" />
+                          Stop Game
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => handleLaunch(selectedGameDetail.game.id)}
+                          className="w-full glow-btn py-3.5 text-sm font-bold flex items-center justify-center gap-2"
+                        >
+                          <Play className="w-4 h-4 fill-current" />
+                          Launch Game
+                        </button>
+                      )
                     ) : (
                       <button 
                         onClick={() => handleInstall(selectedGameDetail.game.id)}

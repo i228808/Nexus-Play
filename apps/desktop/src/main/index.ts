@@ -18,7 +18,8 @@ import {
   applyGameMetadata,
   updateGameTitle,
   installGame,
-  uninstallGame
+  uninstallGame,
+  stopGame
 } from './services/gameService.ts';
 import { getAssetCacheDir } from './services/metadataService.ts';
 import { getControllerBatteryInfo } from './services/batteryService.ts';
@@ -171,6 +172,10 @@ app.whenReady().then(() => {
       }
     }
     return result;
+  });
+
+  ipcMain.handle('games:stop', async (_, id: string) => {
+    return await stopGame(id);
   });
 
   ipcMain.handle('games:toggleFavorite', async (_, id: string) => {

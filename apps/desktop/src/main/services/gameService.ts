@@ -15,7 +15,7 @@ const legendaryPlugin = new LegendaryPlugin();
 const manualPlugin = new ManualPlugin();
 
 // Map of game IDs that are currently running and tracked
-const runningGames = new Map<string, { startTime: number; timer: NodeJS.Timeout }>();
+const runningGames = new Map<string, { startTime: number; timer: NodeJS.Timeout; pid?: number }>();
 
 export async function listGames(): Promise<Game[]> {
   try {
@@ -413,8 +413,11 @@ export async function launchGame(id: string): Promise<{ success: boolean; error?
       let missedCount = 0;
       timer = setInterval(() => {
         // We grep for the install directory name in the process tree.
-        // It fits Wine, Proton, and native games well as the path is in the cmdline.
-        exec(`pgrep -f "${installDirName}"`, async (err, stdout) => {
+        // Use a bracket trick to prevent pgrep from matching its own command string
+        const safeGrep = installDirName.length > 0 
+          ? `[${installDirName[0]}]${installDirName.substring(1)}`
+          : installDirName;
+        exec(`pgrep -f "${safeGrep}"`, async (err, stdout) => {
           if (err || !stdout.trim()) {
             // Give it 3 checks (9 seconds) to buffer load times
             missedCount++;
@@ -447,11 +450,65 @@ export async function launchGame(id: string): Promise<{ success: boolean; error?
     }
   }
 
-  runningGames.set(id, { startTime, timer });
+  runningGames.set(id, { startTime, timer, pid: result.pid });
 
   // Update last played time immediately
   const nowStr = new Date().toISOString();
   await db.update(games).set({ lastPlayedAt: nowStr }).where(eq(games.id, id));
+
+  return { success: true };
+}
+
+export async function stopGame(id: string): Promise<{ success: boolean; error?: string }> {
+  log('launcher', `Attempting to stop game: ${id}`);
+  const gameData = runningGames.get(id);
+  if (!gameData) {
+    return { success: false, error: 'Game is not running or tracking was lost' };
+  }
+
+  const db = getDb();
+  const gameRows = await db.select().from(games).where(eq(games.id, id));
+  if (gameRows.length === 0) return { success: false, error: 'Game not found' };
+
+  const game = gameRows[0] as Game;
+
+  // Try to kill by PID if available, else fallback to pkill -f
+  let killed = false;
+  
+  if (gameData.pid) {
+    try {
+      // Try killing the process group (if detached)
+      process.kill(-gameData.pid, 'SIGKILL');
+      killed = true;
+    } catch (e) {
+      try {
+        process.kill(gameData.pid, 'SIGKILL');
+        killed = true;
+      } catch (err) {
+        log('launcher', `Failed to kill PID ${gameData.pid}`, 'WARN');
+      }
+    }
+  } 
+  
+  if (!killed && game.installPath) {
+    const installDirName = path.basename(game.installPath);
+    if (installDirName) {
+      const safeGrep = `[${installDirName[0]}]${installDirName.substring(1)}`;
+      exec(`pkill -f "${safeGrep}" -9`);
+      killed = true;
+    }
+  }
+
+  if (!killed) {
+    // Blanket kill for proton/wine if nothing else
+    exec('pkill -i wine -9 || pkill -f proton -9');
+  }
+
+  // Finalize tracking
+  clearInterval(gameData.timer);
+  runningGames.delete(id);
+  const duration = Math.floor((Date.now() - gameData.startTime) / 1000);
+  await savePlaytime(id, duration);
 
   return { success: true };
 }

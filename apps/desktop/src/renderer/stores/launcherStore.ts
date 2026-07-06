@@ -44,6 +44,7 @@ interface LauncherState {
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   scanSources: () => Promise<void>;
   launchGame: (id: string) => Promise<{ success: boolean; error?: string }>;
+  stopGame: (id: string) => Promise<{ success: boolean; error?: string }>;
   toggleFavorite: (id: string) => Promise<void>;
   toggleHide: (id: string) => Promise<void>;
   addManualGame: (gameData: {
@@ -144,6 +145,19 @@ export const useLauncherStore = create<LauncherState>((set, get) => ({
       return res;
     } catch (err: any) {
       console.error(`Failed to launch game: ${id}`, err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  stopGame: async (id) => {
+    try {
+      const res = await window.nexus.games.stop(id);
+      if (res.success) {
+        await get().loadGames();
+      }
+      return res;
+    } catch (err: any) {
+      console.error(`Failed to stop game: ${id}`, err);
       return { success: false, error: err.message };
     }
   },
@@ -259,9 +273,10 @@ export const useLauncherStore = create<LauncherState>((set, get) => ({
 interface NexusAPI {
   games: {
     list(): Promise<Game[]>;
-    get(id: string): Promise<any>;
+    get: (id: string) => Promise<{ game: Game; metadata: GameMetadata | null; profiles: any[] } | null>;
     scanSources(): Promise<any>;
     launch(id: string): Promise<{ success: boolean; error?: string }>;
+    stop: (id: string) => Promise<{ success: boolean; error?: string }>;
     toggleFavorite(id: string): Promise<boolean>;
     toggleHide(id: string): Promise<boolean>;
     addManual(gameData: any): Promise<Game>;

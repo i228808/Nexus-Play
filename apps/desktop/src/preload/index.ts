@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('nexus', {
     get: (id: string) => ipcRenderer.invoke('games:get', id),
     scanSources: () => ipcRenderer.invoke('games:scanSources'),
     launch: (id: string) => ipcRenderer.invoke('games:launch', id),
+    stop: (id: string) => ipcRenderer.invoke('games:stop', id),
     toggleFavorite: (id: string) => ipcRenderer.invoke('games:toggleFavorite', id),
     toggleHide: (id: string) => ipcRenderer.invoke('games:toggleHide', id),
     addManual: (gameData: {
