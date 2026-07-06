@@ -102,6 +102,10 @@ export default function App() {
   const [ryuPath, setRyuPath] = useState('');
   const [yuPath, setYuPath] = useState('');
   const [pcsxPath, setPcsxPath] = useState('');
+  
+  // Theme Settings States
+  const [accentColor, setAccentColor] = useState('#3b82f6');
+  const [backgroundImage, setBackgroundImage] = useState('');
 
   // Listen for PS or Xbox Home/Guide button to toggle Big Picture Mode
   useGamepad({
@@ -151,6 +155,8 @@ export default function App() {
       setRyuPath(settings.ryujinxPath || 'ryujinx');
       setYuPath(settings.yuzuPath || 'yuzu');
       setPcsxPath(settings.pcsx2Path || 'pcsx2-qt');
+      setAccentColor(settings.accentColor || '#3b82f6');
+      setBackgroundImage(settings.backgroundImage || '');
     }
   }, [settings]);
 
@@ -224,7 +230,9 @@ export default function App() {
       romDirectories: romDirs,
       ryujinxPath: ryuPath,
       yuzuPath: yuPath,
-      pcsx2Path: pcsxPath
+      pcsx2Path: pcsxPath,
+      accentColor: accentColor,
+      backgroundImage: backgroundImage
     });
     setSaveStatus('saved');
     setTimeout(() => setSaveStatus('idle'), 2000);
@@ -381,7 +389,14 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-dark-900 text-slate-200 overflow-hidden font-sans">
+    <div 
+      className="flex h-screen w-screen bg-dark-900 text-slate-200 overflow-hidden font-sans bg-cover bg-center"
+      style={{ 
+        '--color-accent': settings?.accentColor || '#3b82f6',
+        '--color-accent-hover': settings?.accentColor || '#2563eb',
+        backgroundImage: settings?.backgroundImage ? `linear-gradient(to right, rgba(3, 7, 18, 0.95), rgba(3, 7, 18, 0.8)), url(${settings.backgroundImage})` : 'none'
+      } as React.CSSProperties}
+    >
       
       {/* SIDEBAR */}
       <aside className="w-64 bg-dark-800/90 border-r border-slate-800/50 flex flex-col justify-between py-6 px-4 z-10 backdrop-blur-md">
@@ -854,6 +869,44 @@ export default function App() {
                             className="bg-dark-900 border border-slate-850 px-4 py-2.5 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono"
                           />
                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Themes & Customization */}
+                  <div className="border-t border-slate-800/40 pt-4 mt-2">
+                    <h4 className="text-sm font-bold text-slate-300 mb-4">Themes & Customization</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Accent Color */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Accent Color (Hex)</label>
+                        <div className="flex gap-2 items-center">
+                          <input 
+                            type="color"
+                            value={accentColor}
+                            onChange={(e) => setAccentColor(e.target.value)}
+                            className="bg-transparent border-none w-8 h-8 rounded cursor-pointer"
+                          />
+                          <input 
+                            type="text"
+                            placeholder="#3b82f6"
+                            value={accentColor}
+                            onChange={(e) => setAccentColor(e.target.value)}
+                            className="bg-dark-900 border border-slate-850 px-4 py-2 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono flex-1"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Background Image */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Custom Background Image URL</label>
+                        <input 
+                          type="text"
+                          placeholder="file:///path/to/bg.jpg or https://..."
+                          value={backgroundImage}
+                          onChange={(e) => setBackgroundImage(e.target.value)}
+                          className="bg-dark-900 border border-slate-850 px-4 py-2 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono"
+                        />
                       </div>
                     </div>
                   </div>

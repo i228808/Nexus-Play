@@ -14,6 +14,11 @@ export interface AppSettings {
   ryujinxPath: string;
   yuzuPath: string;
   pcsx2Path: string;
+  duckstationPath?: string;
+  dolphinPath?: string;
+  cemuPath?: string;
+  accentColor?: string;
+  backgroundImage?: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -27,6 +32,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   ryujinxPath: 'ryujinx',
   yuzuPath: 'yuzu',
   pcsx2Path: 'pcsx2-qt',
+  accentColor: '#3b82f6', // blue-500
+  backgroundImage: ''
 };
 
 export async function getSettings(): Promise<AppSettings> {

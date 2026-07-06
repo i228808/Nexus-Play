@@ -15,6 +15,8 @@ export interface AppSettings {
   duckstationPath?: string;
   dolphinPath?: string;
   cemuPath?: string;
+  accentColor?: string;
+  backgroundImage?: string;
 }
 
 export interface ControllerBatteryInfo {

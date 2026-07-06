@@ -8,9 +8,9 @@ export default {
     extend: {
       colors: {
         accent: {
-          DEFAULT: '#3b82f6', // electric blue
-          hover: '#2563eb',
-          purple: '#8b5cf6', // violet
+          DEFAULT: 'var(--color-accent, #3b82f6)',
+          hover: 'var(--color-accent-hover, #2563eb)',
+          purple: '#8b5cf6',
           purpleHover: '#7c3aed'
         },
         dark: {
