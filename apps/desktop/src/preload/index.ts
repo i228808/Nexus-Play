@@ -31,5 +31,8 @@ contextBridge.exposeInMainWorld('nexus', {
   },
   controllers: {
     getBatteryInfo: () => ipcRenderer.invoke('controllers:getBatteryInfo'),
+  },
+  dialog: {
+    showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   }
 });

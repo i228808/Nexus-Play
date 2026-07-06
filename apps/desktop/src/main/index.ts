@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, protocol, net } from 'electron';
+import { app, BrowserWindow, ipcMain, protocol, net, dialog } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -180,6 +180,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle('games:updateTitle', async (_, id: string, title: string) => {
     return updateGameTitle(id, title);
+  });
+
+  ipcMain.handle('dialog:showOpenDialog', async (_, options) => {
+    if (mainWindow) {
+      return dialog.showOpenDialog(mainWindow, options);
+    }
+    return dialog.showOpenDialog(options);
   });
 
   createWindow();

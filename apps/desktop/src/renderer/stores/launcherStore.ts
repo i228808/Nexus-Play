@@ -8,6 +8,13 @@ export interface AppSettings {
   minimizeOnLaunch: boolean;
   theme: string;
   scanOnStartup: boolean;
+  romDirectories?: string;
+  ryujinxPath?: string;
+  yuzuPath?: string;
+  pcsx2Path?: string;
+  duckstationPath?: string;
+  dolphinPath?: string;
+  cemuPath?: string;
 }
 
 export interface ControllerBatteryInfo {

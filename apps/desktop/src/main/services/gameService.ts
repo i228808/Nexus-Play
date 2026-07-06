@@ -1,13 +1,14 @@
 import { getDb } from '../db/index.ts';
 import { games, gameMetadata, launchProfiles } from '../db/schema.ts';
 import { eq, sql } from 'drizzle-orm';
-import { SteamPlugin, LegendaryPlugin, ManualPlugin } from '@nexus-play/plugins';
+import { SteamPlugin, LegendaryPlugin, ManualPlugin, EmulatorPlugin } from '@nexus-play/plugins';
 import { Game, normalizeTitle } from '@nexus-play/core';
 import { log } from './logger.ts';
 import { exec } from 'node:child_process';
 import { fetchAndCacheMetadata } from './metadataService.ts';
 import { BrowserWindow } from 'electron';
 import path from 'node:path';
+import { getSettings } from './settings.ts';
 
 const steamPlugin = new SteamPlugin();
 const legendaryPlugin = new LegendaryPlugin();
@@ -80,11 +81,12 @@ export async function getGameDetail(id: string) {
   };
 }
 
-export async function scanSources(): Promise<{ steam: number; legendary: number; total: number }> {
+export async function scanSources(): Promise<{ steam: number; legendary: number; roms: number; total: number }> {
   log('scanner', 'Starting game scan...');
   const db = getDb();
   let steamCount = 0;
   let legendaryCount = 0;
+  let romCount = 0;
 
   const now = new Date().toISOString();
 
@@ -198,8 +200,69 @@ export async function scanSources(): Promise<{ steam: number; legendary: number;
     log('scanner', `Error scanning Legendary: ${err.message}`, 'ERROR');
   }
 
-  log('scanner', `Scan completed. Steam: ${steamCount}, Legendary: ${legendaryCount}`);
-  return { steam: steamCount, legendary: legendaryCount, total: steamCount + legendaryCount };
+  // 3. Scan ROMs / Emulators
+  try {
+    const settings = await getSettings();
+    const romDirs = settings.romDirectories ? settings.romDirectories.split(',').map(d => d.trim()).filter(Boolean) : [];
+    
+    const emulatorPlugin = new EmulatorPlugin({
+      romDirectories: romDirs,
+      ryujinxPath: settings.ryujinxPath,
+      yuzuPath: settings.yuzuPath,
+      pcsx2Path: settings.pcsx2Path,
+    });
+
+    const isEmuActive = await emulatorPlugin.detectInstallation();
+    if (isEmuActive) {
+      log('scanner', 'ROM directories detected. Scanning for retro games...');
+      const emuGames = await emulatorPlugin.scan();
+      log('scanner', `Found ${emuGames.length} ROMs.`);
+
+      for (const eg of emuGames) {
+        const id = `rom:${eg.externalId}`;
+        const normalized = normalizeTitle(eg.title);
+
+        const existing = await db.select().from(games).where(eq(games.id, id));
+        if (existing.length > 0) {
+          await db.update(games).set({
+            title: eg.title,
+            normalizedTitle: normalized,
+            installPath: eg.installPath,
+            executablePath: eg.executablePath,
+            launchCommand: eg.launchCommand,
+            platform: eg.platform,
+            installed: eg.installed,
+            updatedAt: now,
+          }).where(eq(games.id, id));
+        } else {
+          await db.insert(games).values({
+            id,
+            title: eg.title,
+            normalizedTitle: normalized,
+            source: 'rom',
+            externalId: eg.externalId,
+            installPath: eg.installPath,
+            executablePath: eg.executablePath,
+            launchCommand: eg.launchCommand,
+            platform: eg.platform,
+            installed: eg.installed,
+            createdAt: now,
+            updatedAt: now,
+          });
+          
+          fetchAndCacheMetadata(id, eg.title).catch(err => {
+            log('metadata', `Background fetch failed for ${eg.title}: ${err.message}`, 'WARN');
+          });
+        }
+        romCount++;
+      }
+    }
+  } catch (err: any) {
+    log('scanner', `Error scanning ROMs: ${err.message}`, 'ERROR');
+  }
+
+  log('scanner', `Scan completed. Steam: ${steamCount}, Legendary: ${legendaryCount}, ROMs: ${romCount}`);
+  return { steam: steamCount, legendary: legendaryCount, roms: romCount, total: steamCount + legendaryCount + romCount };
 }
 
 export async function addManualGame(gameData: {
@@ -287,6 +350,16 @@ export async function launchGame(id: string): Promise<{ success: boolean; error?
     result = await legendaryPlugin.launch(game);
   } else if (game.source === 'manual') {
     result = await manualPlugin.launch(game);
+  } else if (game.source === 'rom') {
+    const settings = await getSettings();
+    const romDirs = settings.romDirectories ? settings.romDirectories.split(',').map(d => d.trim()).filter(Boolean) : [];
+    const emulatorPlugin = new EmulatorPlugin({
+      romDirectories: romDirs,
+      ryujinxPath: settings.ryujinxPath,
+      yuzuPath: settings.yuzuPath,
+      pcsx2Path: settings.pcsx2Path,
+    });
+    result = await emulatorPlugin.launch(game);
   } else {
     return { success: false, error: `Unsupported game source: ${game.source}` };
   }

@@ -29,3 +29,4 @@ export * from './adapters/steam.ts';
 export * from './adapters/legendary.ts';
 export * from './adapters/manual.ts';
 export * from './adapters/vdf.ts';
+export * from './adapters/emulator.ts';

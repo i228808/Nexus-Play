@@ -93,6 +93,12 @@ export default function App() {
   const [legPath, setLegPath] = useState('');
   const [minLaunch, setMinLaunch] = useState(true);
   const [scanStartup, setScanStartup] = useState(true);
+  
+  // Emulator Settings States
+  const [romDirs, setRomDirs] = useState('');
+  const [ryuPath, setRyuPath] = useState('');
+  const [yuPath, setYuPath] = useState('');
+  const [pcsxPath, setPcsxPath] = useState('');
 
   // Listen for PS or Xbox Home/Guide button to toggle Big Picture Mode
   useGamepad({
@@ -138,6 +144,10 @@ export default function App() {
       setLegPath(settings.legendaryPath || 'legendary');
       setMinLaunch(settings.minimizeOnLaunch);
       setScanStartup(settings.scanOnStartup);
+      setRomDirs(settings.romDirectories || '');
+      setRyuPath(settings.ryujinxPath || 'ryujinx');
+      setYuPath(settings.yuzuPath || 'yuzu');
+      setPcsxPath(settings.pcsx2Path || 'pcsx2-qt');
     }
   }, [settings]);
 
@@ -207,10 +217,26 @@ export default function App() {
       steamGridDbApiKey: sgdbKey,
       legendaryPath: legPath,
       minimizeOnLaunch: minLaunch,
-      scanOnStartup: scanStartup
+      scanOnStartup: scanStartup,
+      romDirectories: romDirs,
+      ryujinxPath: ryuPath,
+      yuzuPath: yuPath,
+      pcsx2Path: pcsxPath
     });
     setSaveStatus('saved');
     setTimeout(() => setSaveStatus('idle'), 2000);
+  };
+
+  const handleBrowseRomDirs = async () => {
+    // @ts-ignore
+    const result = await window.nexus.dialog.showOpenDialog({
+      properties: ['openDirectory', 'multiSelections']
+    });
+    if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+      const currentDirs = romDirs.split(',').map(d => d.trim()).filter(Boolean);
+      const newDirs = Array.from(new Set([...currentDirs, ...result.filePaths]));
+      setRomDirs(newDirs.join(', '));
+    }
   };
 
   const handleAddManualGame = async (e: React.FormEvent) => {
@@ -754,6 +780,59 @@ export default function App() {
                       className="bg-dark-900 border border-slate-850 px-4 py-2.5 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono"
                     />
                     <span className="text-[10px] text-slate-500">Defaults to globally installed 'legendary' binary. Modify if installing in a custom prefix.</span>
+                  </div>
+
+                  <div className="border-t border-slate-800/40 pt-4 mt-2">
+                    <h4 className="text-sm font-bold text-slate-300 mb-4">Emulator & ROMs</h4>
+                    <div className="flex flex-col gap-4">
+                      {/* ROM Directories */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">ROM Directories</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text"
+                            placeholder="/path/to/roms1, /path/to/roms2"
+                            value={romDirs}
+                            onChange={(e) => setRomDirs(e.target.value)}
+                            className="bg-dark-900 border border-slate-850 px-4 py-2.5 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono flex-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleBrowseRomDirs}
+                            className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                          >
+                            Browse...
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-slate-500">Comma-separated list of directories to scan for .nsp, .xci, and .iso files.</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Ryujinx */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ryujinx Path</label>
+                          <input 
+                            type="text"
+                            placeholder="ryujinx"
+                            value={ryuPath}
+                            onChange={(e) => setRyuPath(e.target.value)}
+                            className="bg-dark-900 border border-slate-850 px-4 py-2.5 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono"
+                          />
+                        </div>
+
+                        {/* PCSX2 */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">PCSX2 Path</label>
+                          <input 
+                            type="text"
+                            placeholder="pcsx2-qt"
+                            value={pcsxPath}
+                            onChange={(e) => setPcsxPath(e.target.value)}
+                            className="bg-dark-900 border border-slate-850 px-4 py-2.5 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Toggles */}

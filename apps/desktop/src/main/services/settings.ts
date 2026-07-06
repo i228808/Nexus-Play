@@ -10,6 +10,10 @@ export interface AppSettings {
   minimizeOnLaunch: boolean;
   theme: string;
   scanOnStartup: boolean;
+  romDirectories: string;
+  ryujinxPath: string;
+  yuzuPath: string;
+  pcsx2Path: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -19,6 +23,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   minimizeOnLaunch: true,
   theme: 'dark',
   scanOnStartup: true,
+  romDirectories: '',
+  ryujinxPath: 'ryujinx',
+  yuzuPath: 'yuzu',
+  pcsx2Path: 'pcsx2-qt',
 };
 
 export async function getSettings(): Promise<AppSettings> {
