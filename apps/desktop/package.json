@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "main": "dist-electron/main/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/unified_launcher.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -16,6 +20,7 @@
     "@nexus-play/plugins": "*",
     "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.29.4",
+    "electron-updater": "^6.8.9",
     "framer-motion": "^11.0.8",
     "lucide-react": "^0.344.0",
     "react": "^18.2.0",
@@ -56,6 +61,11 @@
         "tar.gz"
       ],
       "category": "Game"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "yourusername",
+      "repo": "unified_launcher"
     }
   }
 }

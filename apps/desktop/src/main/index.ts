@@ -22,6 +22,7 @@ import {
 } from './services/gameService.ts';
 import { getAssetCacheDir } from './services/metadataService.ts';
 import { getControllerBatteryInfo } from './services/batteryService.ts';
+import { autoUpdater } from 'electron-updater';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,6 +78,37 @@ function createWindow() {
 
 app.whenReady().then(() => {
   log('main', 'Nexus Play application starting...');
+  
+  // Auto-Updater setup
+  autoUpdater.logger = {
+    info(msg) { log('main', `Updater: ${msg}`); },
+    warn(msg) { log('main', `Updater Warning: ${msg}`, 'WARN'); },
+    error(msg) { log('main', `Updater Error: ${msg}`, 'ERROR'); },
+    debug(msg) { log('main', `Updater Debug: ${msg}`); }
+  };
+  
+  autoUpdater.on('update-available', (info) => {
+    log('main', `Update available: ${info.version}`);
+  });
+  
+  autoUpdater.on('update-downloaded', (info) => {
+    log('main', `Update downloaded: ${info.version}`);
+    // Optional: prompt user to install and restart
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Ready',
+      message: 'A new version of Nexus Play has been downloaded. Restart the application to apply the updates.',
+      buttons: ['Restart', 'Later']
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
+
+  autoUpdater.checkForUpdatesAndNotify().catch(err => {
+    log('main', `Error checking for updates: ${err.message}`, 'ERROR');
+  });
   
   // Register custom protocol handler for safe cached image loading
   protocol.handle('nexus-media', (request) => {
