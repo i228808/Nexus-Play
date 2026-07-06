@@ -110,12 +110,9 @@ export default function App() {
   const [accentColor, setAccentColor] = useState('#3b82f6');
   const [backgroundImage, setBackgroundImage] = useState('');
 
-  // Listen for PS or Xbox Home/Guide button to toggle Big Picture Mode
   useGamepad({
     onAction: (action) => {
-      if (action === 'home') {
-        setConsoleMode((prev) => !prev);
-      }
+      // Do nothing globally for now to avoid conflicting with Steam's Guide button
     },
     enabled: true,
   });
@@ -1071,7 +1068,7 @@ export default function App() {
                         type="text"
                         value={editTitleVal}
                         onChange={(e) => setEditTitleVal(e.target.value)}
-                        className="bg-dark-950 border border-slate-700 px-2 py-0.5 rounded text-sm text-slate-100 focus:outline-none focus:border-accent w-full font-semibold"
+                        className="bg-white text-black border border-slate-300 px-2 py-0.5 rounded text-sm focus:outline-none focus:border-accent w-full font-semibold"
                         autoFocus
                       />
                       <button
@@ -1506,7 +1503,9 @@ export default function App() {
         <ConsoleMode
           games={games}
           controllers={controllers}
+          playingGameId={playingGameId}
           onLaunch={handleLaunch}
+          onStop={handleStop}
           onInstall={handleInstall}
           onUninstall={handleUninstall}
           onToggleFavorite={toggleFavorite}

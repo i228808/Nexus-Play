@@ -127,15 +127,17 @@ interface ConsoleModeProps {
   games: Game[];
   controllers: any[];
   onLaunch: (id: string) => void;
+  onStop?: (id: string) => void;
   onInstall: (id: string) => void;
   onUninstall: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onDeleteGame?: (id: string) => Promise<any>;
   onClose: () => void;
+  playingGameId?: string | null;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function ConsoleMode({ games, controllers, onLaunch, onInstall, onUninstall, onToggleFavorite, onDeleteGame, onClose }: ConsoleModeProps) {
+export default function ConsoleMode({ games, controllers, onLaunch, onStop, onInstall, onUninstall, onToggleFavorite, onDeleteGame, onClose, playingGameId }: ConsoleModeProps) {
   // All navigation state in refs so gamepad handler is never stale
   const catIndexRef  = useRef(0);
   const gameIndexRef = useRef(0);
@@ -355,22 +357,34 @@ export default function ConsoleMode({ games, controllers, onLaunch, onInstall, o
 
               <div className="flex gap-3 mb-10">
                 {selectedGame.installed ? (
-                  <button
-                    onClick={() => {
-                      if (launchingRef.current) return;
-                      launchingRef.current = true; setLaunching(true);
-                      onLaunch(selectedGame.id);
-                      setTimeout(() => { launchingRef.current = false; setLaunching(false); }, 3000);
-                    }}
-                    disabled={launching}
-                    className="flex items-center gap-3 pl-6 pr-8 py-3.5 rounded-2xl bg-white text-black font-black text-base shadow-2xl shadow-white/5 hover:bg-white/90 active:scale-95 transition-all duration-100 disabled:opacity-50"
-                  >
-                    {launching
-                      ? <span className="w-5 h-5 rounded-full border-2 border-black/20 border-t-black animate-spin" />
-                      : <Play className="w-5 h-5 fill-black" />
-                    }
-                    {launching ? 'Launching…' : 'Play Now'}
-                  </button>
+                  playingGameId === selectedGame.id ? (
+                    <button
+                      onClick={() => {
+                        if (onStop) onStop(selectedGame.id);
+                      }}
+                      className="flex items-center gap-3 pl-6 pr-8 py-3.5 rounded-2xl bg-red-600 text-white font-black text-base shadow-2xl shadow-red-600/20 hover:bg-red-500 active:scale-95 transition-all duration-100"
+                    >
+                      <X className="w-5 h-5 text-white" />
+                      Playing (Stop)
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (launchingRef.current) return;
+                        launchingRef.current = true; setLaunching(true);
+                        onLaunch(selectedGame.id);
+                        setTimeout(() => { launchingRef.current = false; setLaunching(false); }, 3000);
+                      }}
+                      disabled={launching}
+                      className="flex items-center gap-3 pl-6 pr-8 py-3.5 rounded-2xl bg-white text-black font-black text-base shadow-2xl shadow-white/5 hover:bg-white/90 active:scale-95 transition-all duration-100 disabled:opacity-50"
+                    >
+                      {launching
+                        ? <span className="w-5 h-5 rounded-full border-2 border-black/20 border-t-black animate-spin" />
+                        : <Play className="w-5 h-5 fill-black" />
+                      }
+                      {launching ? 'Launching…' : 'Play Now'}
+                    </button>
+                  )
                 ) : (
                   <button
                     onClick={() => {
@@ -606,22 +620,34 @@ export default function ConsoleMode({ games, controllers, onLaunch, onInstall, o
                   </div>
 
                   <div className="flex items-center gap-2 mt-1">
-                    <button
-                      onClick={() => {
-                        if (launchingRef.current) return;
-                        launchingRef.current = true; setLaunching(true);
-                        onLaunch(selectedGame.id);
-                        setTimeout(() => { launchingRef.current = false; setLaunching(false); }, 3000);
-                      }}
-                      disabled={launching}
-                      className="flex items-center gap-3 pl-5 pr-7 py-3 rounded-2xl bg-white text-black font-black text-sm shadow-2xl shadow-white/10 hover:bg-white/90 active:scale-95 transition-all duration-100 disabled:opacity-50"
-                    >
-                      {launching
-                        ? <span className="w-4 h-4 rounded-full border-2 border-black/20 border-t-black animate-spin" />
-                        : <Play className="w-4 h-4 fill-black" />
-                      }
-                      {launching ? 'Launching…' : 'Play'}
-                    </button>
+                    {playingGameId === selectedGame.id ? (
+                      <button
+                        onClick={() => {
+                          if (onStop) onStop(selectedGame.id);
+                        }}
+                        className="flex items-center gap-3 pl-5 pr-7 py-3 rounded-2xl bg-red-600 text-white font-black text-sm shadow-2xl shadow-red-600/20 hover:bg-red-500 active:scale-95 transition-all duration-100"
+                      >
+                        <X className="w-4 h-4" />
+                        Playing
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          if (launchingRef.current) return;
+                          launchingRef.current = true; setLaunching(true);
+                          onLaunch(selectedGame.id);
+                          setTimeout(() => { launchingRef.current = false; setLaunching(false); }, 3000);
+                        }}
+                        disabled={launching}
+                        className="flex items-center gap-3 pl-5 pr-7 py-3 rounded-2xl bg-white text-black font-black text-sm shadow-2xl shadow-white/10 hover:bg-white/90 active:scale-95 transition-all duration-100 disabled:opacity-50"
+                      >
+                        {launching
+                          ? <span className="w-4 h-4 rounded-full border-2 border-black/20 border-t-black animate-spin" />
+                          : <Play className="w-4 h-4 fill-black" />
+                        }
+                        {launching ? 'Launching…' : 'Play'}
+                      </button>
+                    )}
                     <button
                       onClick={() => onToggleFavorite(selectedGame.id)}
                       className={`p-3 rounded-2xl border transition-all active:scale-95 duration-100 ${
