@@ -194,6 +194,9 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
   // Keep ref in sync with derived index
   useEffect(() => { gameIndexRef.current = safeIdx; }, [safeIdx]);
 
+  const playingGameIdRef = useRef(playingGameId);
+  useEffect(() => { playingGameIdRef.current = playingGameId; }, [playingGameId]);
+
   // Hide hint
   useEffect(() => { const t = setTimeout(() => setShowHint(false), 6000); return () => clearTimeout(t); }, []);
 
@@ -217,7 +220,7 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
   // ── Keyboard fallback ─────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.repeat) return; // Prevent rapid keyboard repeat jumps!
+      if (e.repeat || playingGameIdRef.current) return; // Prevent rapid keyboard repeat jumps, and ignore if game playing
       if (viewRef.current === 'search') {
         if (e.key === 'Escape') { setView('shelf'); setSearchQuery(''); }
         return;
@@ -237,7 +240,7 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
 
   // ── Central action dispatcher (all via refs — zero stale closure) ─────────
   const dispatchAction = (action: GamepadAction) => {
-    if (launchingRef.current) return;
+    if (launchingRef.current || playingGameIdRef.current) return;
 
     if (viewRef.current === 'search') {
       if (action === 'back') { setView('shelf'); setSearchQuery(''); }
