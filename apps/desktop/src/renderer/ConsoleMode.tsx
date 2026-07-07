@@ -97,6 +97,7 @@ const placeholderGrad = (title: string) =>
 type Category = { id: string; label: string; filter: (games: Game[]) => Game[] };
 
 const CATEGORIES: Category[] = [
+  { id: 'installed', label: 'Installed',      filter: g => g.filter(x => x.installed && !x.hidden) },
   { id: 'all',       label: 'All Games',        filter: g => g.filter(x => !x.hidden) },
   { id: 'recent',    label: 'Recently Played',  filter: g =>
       [...g].filter(x => x.lastPlayedAt && !x.hidden)

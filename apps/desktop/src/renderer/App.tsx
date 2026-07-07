@@ -71,7 +71,7 @@ export default function App() {
   } = useLauncherStore();
 
   // Local UI States
-  const [consoleMode, setConsoleMode] = useState(false);
+  const [consoleMode, setConsoleMode] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'steam' | 'legendary' | 'manual'>('all');
   const [installedFilter, setInstalledFilter] = useState<'all' | 'installed'>('all');
@@ -1501,7 +1501,7 @@ export default function App() {
       {/* ── CONSOLE / BIG PICTURE MODE OVERLAY ── */}
       {consoleMode && (
         <ConsoleMode
-          games={games}
+          games={games.filter(g => g.installed)}
           controllers={controllers}
           playingGameId={playingGameId}
           onLaunch={handleLaunch}
