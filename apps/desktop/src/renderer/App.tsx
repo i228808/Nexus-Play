@@ -333,6 +333,37 @@ export default function App() {
     }
   };
 
+  const handleBrowseExecutable = async () => {
+    const res = await window.nexus.dialog.showOpenDialog({
+      properties: ['openFile'],
+      title: 'Select Executable'
+    });
+    if (res && !res.canceled && res.filePaths.length > 0) {
+      setManualExecutable(res.filePaths[0]);
+      if (!manualCommand) setManualCommand(`"${res.filePaths[0]}"`);
+    }
+  };
+
+  const handleBrowseInstallPath = async () => {
+    const res = await window.nexus.dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'Select Install Path'
+    });
+    if (res && !res.canceled && res.filePaths.length > 0) {
+      setManualInstallPath(res.filePaths[0]);
+    }
+  };
+
+  const handleBrowsePrefix = async () => {
+    const res = await window.nexus.dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'Select Wine Prefix Folder'
+    });
+    if (res && !res.canceled && res.filePaths.length > 0) {
+      setManualPrefix(res.filePaths[0]);
+    }
+  };
+
   const handleLaunch = async (id: string) => {
     setLaunchError(null);
     const res = await launchGame(id);
@@ -1601,24 +1632,42 @@ export default function App() {
 
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Install Path / Working Directory</label>
-                  <input 
-                    type="text"
-                    placeholder="e.g. /home/user/Games/Minecraft/"
-                    value={manualInstallPath}
-                    onChange={(e) => setManualInstallPath(e.target.value)}
-                    className="bg-dark-900 border border-slate-850 px-3 py-2 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono"
-                  />
+                  <div className="flex gap-2">
+                    <input 
+                      type="text"
+                      placeholder="e.g. /home/user/Games/Minecraft/"
+                      value={manualInstallPath}
+                      onChange={(e) => setManualInstallPath(e.target.value)}
+                      className="flex-1 bg-dark-900 border border-slate-850 px-3 py-2 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={handleBrowseInstallPath}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-white rounded-lg whitespace-nowrap transition-colors"
+                    >
+                      Browse
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Executable File</label>
-                  <input 
-                    type="text"
-                    placeholder="e.g. minecraft-launcher"
-                    value={manualExecutable}
-                    onChange={(e) => setManualExecutable(e.target.value)}
-                    className="bg-dark-900 border border-slate-850 px-3 py-2 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono"
-                  />
+                  <div className="flex gap-2">
+                    <input 
+                      type="text"
+                      placeholder="e.g. minecraft-launcher"
+                      value={manualExecutable}
+                      onChange={(e) => setManualExecutable(e.target.value)}
+                      className="flex-1 bg-dark-900 border border-slate-850 px-3 py-2 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={handleBrowseExecutable}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-white rounded-lg whitespace-nowrap transition-colors"
+                    >
+                      Browse
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -1658,6 +1707,13 @@ export default function App() {
                         <option key={p.path} value={p.path}>{p.name}</option>
                       ))}
                     </select>
+                    <button 
+                      type="button" 
+                      onClick={handleBrowsePrefix}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-white rounded-lg whitespace-nowrap transition-colors"
+                    >
+                      Browse
+                    </button>
                     <button 
                       type="button" 
                       onClick={handleCreatePrefix}
