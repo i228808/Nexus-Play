@@ -43,6 +43,14 @@ export class ManualPlugin implements LibraryPlugin {
         }
       }
 
+      if (game.winePrefix) {
+        env.WINEPREFIX = game.winePrefix;
+      }
+
+      if (game.protonVersion) {
+        finalCommand = `${game.protonVersion} ${finalCommand}`;
+      }
+
       console.log(`[Manual Plugin] Executing command: "${finalCommand}" in directory: "${workingDir}"`);
 
       // We run via shell so that environment variables and pipe/shell features work

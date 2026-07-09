@@ -3,6 +3,7 @@ import {
   useLauncherStore
 } from './stores/launcherStore.ts';
 import ConsoleMode from './ConsoleMode.tsx';
+import { PlaytimeDashboard } from './components/PlaytimeDashboard';
 import { useGamepad } from './hooks/useGamepad.ts';
 import logo from './assets/logo.png';
 import { 
@@ -93,6 +94,11 @@ export default function App() {
   const [isApplyingMetadata, setIsApplyingMetadata] = useState(false);
   const [metadataSearchError, setMetadataSearchError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  // Config Edit States
+  const [isEditingConfig, setIsEditingConfig] = useState(false);
+  const [editWinePrefix, setEditWinePrefix] = useState('');
+  const [editProtonVersion, setEditProtonVersion] = useState('');
 
   // Settings Local Input States
   const [sgdbKey, setSgdbKey] = useState('');
@@ -358,14 +364,14 @@ export default function App() {
       setIsApplyingMetadata(false);
     }
   };
-
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleVal, setEditTitleVal] = useState('');
-
   useEffect(() => {
-    setIsEditingTitle(false);
     if (selectedGameDetail) {
       setEditTitleVal(selectedGameDetail.game.title);
+      setEditWinePrefix(selectedGameDetail.game.winePrefix || '');
+      setEditProtonVersion(selectedGameDetail.game.protonVersion || '');
+      setIsEditingConfig(false);
     }
   }, [selectedGameDetail]);
 
@@ -386,6 +392,26 @@ export default function App() {
       alert(e.message || 'Error updating title');
     }
   };
+  const handleSaveConfig = async () => {
+    if (!selectedGameDetail) return;
+    try {
+      // @ts-ignore
+      const res = await window.nexus.games.updateConfiguration(selectedGameDetail.game.id, {
+        winePrefix: editWinePrefix.trim() || undefined,
+        protonVersion: editProtonVersion.trim() || undefined
+      });
+      if (res.success) {
+        setIsEditingConfig(false);
+        await setSelectedGameId(selectedGameDetail.game.id);
+        loadGames();
+      } else {
+        alert(res.error);
+      }
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
   const handleDeleteGame = async () => {
     if (!selectedGameDetail) return;
     setLaunchError(null);
@@ -596,6 +622,9 @@ export default function App() {
                   <p>Your library is empty. Click "Scan Library" to import games.</p>
                 </div>
               )}
+
+              {/* Analytics Dashboard */}
+              <PlaytimeDashboard games={games} />
 
               {/* Continue Playing Rows */}
               {recentlyPlayed.length > 0 && (
@@ -1355,6 +1384,65 @@ export default function App() {
                             : 'Never'}
                         </span>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Configuration */}
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Configuration</h4>
+                      {isEditingConfig ? (
+                        <div className="flex gap-2">
+                          <button onClick={handleSaveConfig} className="text-[10px] bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded font-bold uppercase transition-colors">Save</button>
+                          <button onClick={() => setIsEditingConfig(false)} className="text-[10px] bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded font-bold uppercase transition-colors">Cancel</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setIsEditingConfig(true)} className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1">
+                          <Edit2 className="w-3 h-3" /> Edit
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-col gap-3 bg-dark-900/40 p-4 border border-slate-850/80 rounded-lg">
+                      {isEditingConfig ? (
+                        <>
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] text-slate-500 font-bold uppercase">Wine Prefix Path</label>
+                            <input 
+                              type="text" 
+                              value={editWinePrefix} 
+                              onChange={(e) => setEditWinePrefix(e.target.value)} 
+                              placeholder="e.g. /home/user/Games/prefix"
+                              className="bg-black/40 border border-slate-700 px-3 py-1.5 rounded text-xs text-white focus:outline-none focus:border-accent"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] text-slate-500 font-bold uppercase">Proton Version / Runner</label>
+                            <input 
+                              type="text" 
+                              value={editProtonVersion} 
+                              onChange={(e) => setEditProtonVersion(e.target.value)} 
+                              placeholder="e.g. GE-Proton9-5 or /path/to/wine"
+                              className="bg-black/40 border border-slate-700 px-3 py-1.5 rounded text-xs text-white focus:outline-none focus:border-accent"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase">Wine Prefix</span>
+                            <span className="text-xs font-mono text-slate-300 truncate" title={selectedGameDetail.game.winePrefix || 'Default'}>
+                              {selectedGameDetail.game.winePrefix || 'Default'}
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase">Proton / Runner</span>
+                            <span className="text-xs font-mono text-slate-300 truncate" title={selectedGameDetail.game.protonVersion || 'Default'}>
+                              {selectedGameDetail.game.protonVersion || 'Default'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 

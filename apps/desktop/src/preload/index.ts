@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('nexus', {
     searchMetadata: (query: string) => ipcRenderer.invoke('games:searchMetadata', query),
     applyMetadata: (gameId: string, sgdbGameId: number, gameTitle: string) =>
       ipcRenderer.invoke('games:applyMetadata', gameId, sgdbGameId, gameTitle),
+    updateConfiguration: (gameId: string, config: { winePrefix?: string; protonVersion?: string }) => 
+      ipcRenderer.invoke('games:updateConfiguration', gameId, config),
     updateTitle: (id: string, title: string) =>
       ipcRenderer.invoke('games:updateTitle', id, title),
     install: (id: string) => ipcRenderer.invoke('games:install', id),

@@ -59,6 +59,7 @@ interface LauncherState {
   deleteGame: (id: string) => Promise<{ success: boolean; error?: string }>;
   searchMetadata: (query: string) => Promise<{ id: number; name: string; releaseDate?: string; types: string[] }[]>;
   applyMetadata: (gameId: string, sgdbGameId: number, gameTitle: string) => Promise<{ success: boolean; error?: string }>;
+  updateConfiguration: (gameId: string, config: { winePrefix?: string; protonVersion?: string }) => Promise<{ success: boolean; error?: string }>;
   updateTitle: (id: string, title: string) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -264,6 +265,20 @@ export const useLauncherStore = create<LauncherState>((set, get) => ({
       return res;
     } catch (err: any) {
       console.error('Failed to update title', err);
+      return { success: false, error: err.message || 'Unknown error' };
+    }
+  },
+  
+  updateConfiguration: async (gameId: string, config: { winePrefix?: string; protonVersion?: string }) => {
+    try {
+      // @ts-ignore
+      const res = await window.nexus.games.updateConfiguration(gameId, config);
+      if (res.success) {
+        await get().loadGames();
+      }
+      return res;
+    } catch (err: any) {
+      console.error('Failed to update config', err);
       return { success: false, error: err.message || 'Unknown error' };
     }
   }

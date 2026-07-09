@@ -49,6 +49,8 @@ export function initDatabase() {
       executable_path TEXT,
       launch_command TEXT,
       platform TEXT DEFAULT 'linux',
+      wine_prefix TEXT,
+      proton_version TEXT,
       installed INTEGER DEFAULT 1,
       hidden INTEGER DEFAULT 0,
       favorite INTEGER DEFAULT 0,
@@ -118,6 +120,15 @@ export function initDatabase() {
       value TEXT NOT NULL
     );
   `);
+
+  // Add columns if missing (migration)
+  try {
+    rawDb.exec(`ALTER TABLE games ADD COLUMN wine_prefix TEXT;`);
+  } catch (e) { /* Column already exists */ }
+  
+  try {
+    rawDb.exec(`ALTER TABLE games ADD COLUMN proton_version TEXT;`);
+  } catch (e) { /* Column already exists */ }
 
   dbInstance = drizzle(rawDb, { schema });
   rawDbInstance = rawDb;

@@ -88,6 +88,14 @@ export class LegendaryPlugin implements LibraryPlugin {
     // Check if we should append arguments or environment variables from profile
     const env = { ...process.env };
     
+    if (game.winePrefix) {
+      args.push('--wine-prefix', game.winePrefix);
+    }
+    
+    if (game.protonVersion) {
+      args.push('--wine', game.protonVersion);
+    }
+
     // In future versions, we can append MangoHud or other toggles
     // For MVP, we spawn legendary CLI directly
     try {

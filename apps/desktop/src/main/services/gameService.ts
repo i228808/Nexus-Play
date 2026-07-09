@@ -9,6 +9,8 @@ import { fetchAndCacheMetadata } from './metadataService.ts';
 import { BrowserWindow } from 'electron';
 import path from 'node:path';
 import { getSettings } from './settings.ts';
+import { setPlayingPresence, setIdlePresence } from './discordRpc.ts';
+import { applyMetadataFromSgdbId } from './metadataService.ts';
 
 const steamPlugin = new SteamPlugin();
 const legendaryPlugin = new LegendaryPlugin();
@@ -452,6 +454,9 @@ export async function launchGame(id: string): Promise<{ success: boolean; error?
 
   runningGames.set(id, { startTime, timer, pid: result.pid });
 
+  // Update Discord RPC
+  setPlayingPresence(game.title);
+
   // Update last played time immediately
   const nowStr = new Date().toISOString();
   await db.update(games).set({ lastPlayedAt: nowStr }).where(eq(games.id, id));
@@ -509,6 +514,8 @@ export async function stopGame(id: string): Promise<{ success: boolean; error?: 
   runningGames.delete(id);
   const duration = Math.floor((Date.now() - gameData.startTime) / 1000);
   await savePlaytime(id, duration);
+
+  setIdlePresence();
 
   return { success: true };
 }
@@ -658,5 +665,23 @@ export async function updateGameTitle(
     return { success: false, error: err.message };
   }
 }
-import { applyMetadataFromSgdbId } from './metadataService.ts';
 
+export async function updateGameConfiguration(
+  id: string,
+  config: { winePrefix?: string; protonVersion?: string }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = getDb();
+    const now = new Date().toISOString();
+    await db.update(games).set({ 
+      winePrefix: config.winePrefix, 
+      protonVersion: config.protonVersion,
+      updatedAt: now 
+    }).where(eq(games.id, id));
+    log('main', `Successfully updated configuration of game ${id}`);
+    return { success: true };
+  } catch (err: any) {
+    log('main', `Failed to update configuration for game ${id}: ${err.message}`, 'ERROR');
+    return { success: false, error: err.message };
+  }
+}

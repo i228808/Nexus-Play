@@ -17,12 +17,14 @@ import {
   searchMetadataForGame,
   applyGameMetadata,
   updateGameTitle,
+  updateGameConfiguration,
   installGame,
   uninstallGame,
   stopGame
 } from './services/gameService.ts';
 import { getAssetCacheDir } from './services/metadataService.ts';
 import { getControllerBatteryInfo } from './services/batteryService.ts';
+import { initDiscordRpc } from './services/discordRpc.ts';
 import { autoUpdater } from 'electron-updater';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -150,6 +152,9 @@ app.whenReady().then(() => {
   // Initialize SQLite database
   initDatabase();
 
+  // Initialize Discord RPC
+  initDiscordRpc();
+
   // --- Register IPC handlers ---
   ipcMain.handle('games:list', async () => {
     return await listGames();
@@ -221,7 +226,11 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('games:applyMetadata', async (_, gameId: string, sgdbGameId: number, gameTitle: string) => {
-    return applyGameMetadata(gameId, sgdbGameId, gameTitle);
+    return await applyGameMetadata(gameId, sgdbGameId, gameTitle);
+  });
+
+  ipcMain.handle('games:updateConfiguration', async (_, gameId: string, config: { winePrefix?: string; protonVersion?: string }) => {
+    return await updateGameConfiguration(gameId, config);
   });
 
   ipcMain.handle('games:install', async (_, id: string) => {

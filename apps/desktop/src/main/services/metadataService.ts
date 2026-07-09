@@ -262,9 +262,9 @@ export async function fetchAndCacheMetadata(gameId: string, gameTitle: string): 
 
     const safeId = gameId.replace(/:/g, '_');
 
-    // Fetch cover (grids)
+    // Fetch cover (grids) prioritizing animated
     try {
-      const grids = await sgdbRequest(`/grids/game/${sgdbGameId}`, apiKey);
+      const grids = await sgdbRequest(`/grids/game/${sgdbGameId}?types=animated,static`, apiKey);
       if (grids.success && grids.data && grids.data.length > 0) {
         const remoteUrl = grids.data[0].url;
         const localExt = path.extname(new URL(remoteUrl).pathname) || '.jpg';
@@ -277,9 +277,9 @@ export async function fetchAndCacheMetadata(gameId: string, gameTitle: string): 
       log('metadata', `Failed to download cover: ${e.message}`, 'WARN');
     }
 
-    // Fetch hero
+    // Fetch hero prioritizing animated
     try {
-      const heroes = await sgdbRequest(`/heroes/game/${sgdbGameId}`, apiKey);
+      const heroes = await sgdbRequest(`/heroes/game/${sgdbGameId}?types=animated,static`, apiKey);
       if (heroes.success && heroes.data && heroes.data.length > 0) {
         const remoteUrl = heroes.data[0].url;
         const localExt = path.extname(new URL(remoteUrl).pathname) || '.jpg';

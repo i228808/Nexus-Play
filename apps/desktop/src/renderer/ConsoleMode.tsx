@@ -1,18 +1,8 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { Game } from '@nexus-play/core';
 import { useGamepad, GamepadAction } from './hooks/useGamepad';
-import {
-  Play,
-  Star,
-  ChevronLeft,
-  Clock,
-  Gamepad2,
-  Search,
-  X,
-  Battery,
-  Download,
-  Trash2
-} from 'lucide-react';
+import { Play, Star, ChevronLeft, Clock, Gamepad2, Search, X, Battery, Download, Trash2 } from 'lucide-react';
+import { useAudio } from './hooks/useAudio';
 
 // ─── Source icons & branding ─────────────────────────────────────────────────
 function SourceBadge({ source, size = 'sm' }: { source: string; size?: 'sm' | 'lg' }) {
@@ -139,6 +129,8 @@ interface ConsoleModeProps {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ConsoleMode({ games, controllers, onLaunch, onStop, onInstall, onUninstall, onToggleFavorite, onDeleteGame, onClose, playingGameId }: ConsoleModeProps) {
+  const { playTick, playSwoosh, playSelect } = useAudio();
+  
   // All navigation state in refs so gamepad handler is never stale
   const catIndexRef  = useRef(0);
   const gameIndexRef = useRef(0);
@@ -234,9 +226,9 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
   // ── Keyboard fallback ─────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.repeat || playingGameIdRef.current) return; // Prevent rapid keyboard repeat jumps, and ignore if game playing
+      if (e.repeat || playingGameIdRef.current) return;
       if (viewRef.current === 'search') {
-        if (e.key === 'Escape') { setView('shelf'); setSearchQuery(''); }
+        if (e.key === 'Escape') { playSwoosh(); setView('shelf'); setSearchQuery(''); }
         return;
       }
       const map: Record<string, GamepadAction> = {
@@ -257,12 +249,12 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
     if (launchingRef.current || playingGameIdRef.current) return;
 
     if (viewRef.current === 'search') {
-      if (action === 'back') { setView('shelf'); setSearchQuery(''); }
+      if (action === 'back') { playSwoosh(); setView('shelf'); setSearchQuery(''); }
       return;
     }
 
     if (viewRef.current === 'detail') {
-      if (action === 'back') { setView('shelf'); return; }
+      if (action === 'back') { playSwoosh(); setView('shelf'); return; }
       if (action === 'confirm') {
         const sel = visibleGamesRef.current[gameIndexRef.current];
         if (!sel) return;
@@ -292,14 +284,20 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
 
     // shelf view
     const total = visibleGamesRef.current.length;
-    if      (action === 'right')   setGame(i => i + 1, total);
-    else if (action === 'left')    setGame(i => i - 1, total);
-    else if (action === 'r1')      setCat(i => (i + 1) % CATEGORIES.length);
-    else if (action === 'l1')      setCat(i => (i - 1 + CATEGORIES.length) % CATEGORIES.length);
-    else if (action === 'confirm') { if (visibleGamesRef.current[gameIndexRef.current]) setView('detail'); }
-    else if (action === 'back')    onClose();
-    else if (action === 'options') { setView('search'); setTimeout(() => searchInputRef.current?.focus(), 80); }
+    if      (action === 'right') { playTick(); setGame(i => i + 1, total); }
+    else if (action === 'left')  { playTick(); setGame(i => i - 1, total); }
+    else if (action === 'r1')    { playSwoosh(); setCat(i => (i + 1) % CATEGORIES.length); }
+    else if (action === 'l1')    { playSwoosh(); setCat(i => (i - 1 + CATEGORIES.length) % CATEGORIES.length); }
+    else if (action === 'confirm') { 
+      if (visibleGamesRef.current[gameIndexRef.current]) {
+        playSelect();
+        setView('detail'); 
+      }
+    }
+    else if (action === 'back') { playSwoosh(); onClose(); }
+    else if (action === 'options') { playSwoosh(); setView('search'); setTimeout(() => searchInputRef.current?.focus(), 80); }
     else if (action === 'menu') {
+      playTick();
       const sel = visibleGamesRef.current[gameIndexRef.current];
       if (sel) onToggleFavorite(sel.id);
     }
