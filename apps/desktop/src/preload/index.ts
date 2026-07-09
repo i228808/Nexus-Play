@@ -37,5 +37,6 @@ contextBridge.exposeInMainWorld('nexus', {
   },
   dialog: {
     showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
-  }
+  },
+  setFullscreen: (isFullscreen: boolean) => ipcRenderer.invoke('window:setFullscreen', isFullscreen),
 });

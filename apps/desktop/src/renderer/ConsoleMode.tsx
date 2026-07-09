@@ -198,6 +198,19 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
   const playingGameIdRef = useRef(playingGameId);
   useEffect(() => { playingGameIdRef.current = playingGameId; }, [playingGameId]);
 
+  // Auto-scroll focused card manually without affecting parent container bounds
+  useEffect(() => {
+    // Set Fullscreen on mount, restore on unmount
+    if (window.api && window.api.setFullscreen) {
+      window.api.setFullscreen(true);
+    }
+    return () => {
+      if (window.api && window.api.setFullscreen) {
+        window.api.setFullscreen(false);
+      }
+    };
+  }, []);
+
   // Hide hint
   useEffect(() => { const t = setTimeout(() => setShowHint(false), 6000); return () => clearTimeout(t); }, []);
 
@@ -695,6 +708,12 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
               <div
                 ref={shelfRef}
                 className={`flex items-end gap-4 overflow-x-auto pr-10 pb-2 scrollbar-none transition-opacity duration-150 relative ${catAnim ? 'opacity-0' : 'opacity-100'}`}
+                onWheel={(e) => {
+                  if (e.deltaY !== 0) {
+                    const direction = e.deltaY > 0 ? 'right' : 'left';
+                    dispatchAction(direction);
+                  }
+                }}
                 style={{ scrollbarWidth: 'none' }}
               >
                 {visibleGames.length === 0 ? (

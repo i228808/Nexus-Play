@@ -178,6 +178,12 @@ app.whenReady().then(() => {
     return await stopGame(id);
   });
 
+  ipcMain.handle('window:setFullscreen', (_, isFullscreen: boolean) => {
+    if (mainWindow) {
+      mainWindow.setFullScreen(isFullscreen);
+    }
+  });
+
   ipcMain.handle('games:toggleFavorite', async (_, id: string) => {
     return await toggleFavorite(id);
   });
