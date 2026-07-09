@@ -22,20 +22,55 @@ export async function getProtonRunners(): Promise<{ name: string; path: string }
     // ignore
   }
 
-  // Proton-GE and Steam Protons
-  if (fs.existsSync(STEAM_COMPAT_DIR)) {
-    try {
-      const dirs = fs.readdirSync(STEAM_COMPAT_DIR, { withFileTypes: true });
-      for (const d of dirs) {
-        if (d.isDirectory()) {
-          const protonPath = path.join(STEAM_COMPAT_DIR, d.name, 'proton');
-          if (fs.existsSync(protonPath)) {
-            runners.push({ name: d.name, path: protonPath });
+  const compatToolPaths = [
+    path.join('/usr/share/steam/compatibilitytools.d'),
+    path.join('/usr/share/Steam/compatibilitytools.d'),
+    path.join(os.homedir(), '.local', 'share', 'Steam', 'compatibilitytools.d'),
+    path.join(os.homedir(), '.steam', 'root', 'compatibilitytools.d'),
+    path.join(os.homedir(), '.steam', 'steam', 'compatibilitytools.d'),
+  ];
+  
+  const steamAppsPaths = [
+    path.join(os.homedir(), '.local', 'share', 'Steam', 'steamapps', 'common'),
+    path.join(os.homedir(), '.steam', 'steam', 'steamapps', 'common'),
+  ];
+
+  // Scan compatibilitytools.d for folders with compatibilitytool.vdf or proton
+  for (const scanDir of compatToolPaths) {
+    if (fs.existsSync(scanDir)) {
+      try {
+        const dirs = fs.readdirSync(scanDir, { withFileTypes: true });
+        for (const d of dirs) {
+          if (d.isDirectory()) {
+            const protonPath = path.join(scanDir, d.name, 'proton');
+            const vdfPath = path.join(scanDir, d.name, 'compatibilitytool.vdf');
+            if ((fs.existsSync(protonPath) || fs.existsSync(vdfPath)) && !runners.some(r => r.path === protonPath)) {
+              runners.push({ name: d.name, path: fs.existsSync(protonPath) ? protonPath : path.join(scanDir, d.name) });
+            }
           }
         }
+      } catch (e) {
+        log('main', `Error reading ${scanDir}: ` + e, 'WARN');
       }
-    } catch (e) {
-      log('main', 'Error reading steam compat dir: ' + e, 'WARN');
+    }
+  }
+
+  // Scan steamapps/common for Proton variants
+  for (const scanDir of steamAppsPaths) {
+    if (fs.existsSync(scanDir)) {
+      try {
+        const dirs = fs.readdirSync(scanDir, { withFileTypes: true });
+        for (const d of dirs) {
+          if (d.isDirectory() && d.name.toLowerCase().startsWith('proton')) {
+            const protonPath = path.join(scanDir, d.name, 'proton');
+            if (fs.existsSync(protonPath) && !runners.some(r => r.path === protonPath)) {
+              runners.push({ name: d.name, path: protonPath });
+            }
+          }
+        }
+      } catch (e) {
+        log('main', `Error reading ${scanDir}: ` + e, 'WARN');
+      }
     }
   }
   
