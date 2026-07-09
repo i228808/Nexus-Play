@@ -40,5 +40,11 @@ contextBridge.exposeInMainWorld('nexus', {
   dialog: {
     showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   },
+  wine: {
+    getRunners: () => ipcRenderer.invoke('wine:getRunners'),
+    getPrefixes: () => ipcRenderer.invoke('wine:getPrefixes'),
+    createPrefix: (name: string) => ipcRenderer.invoke('wine:createPrefix', name),
+    installProtonGE: () => ipcRenderer.invoke('wine:installProtonGE'),
+  },
   setFullscreen: (isFullscreen: boolean) => ipcRenderer.invoke('window:setFullscreen', isFullscreen),
 });

@@ -86,6 +86,27 @@ export default function App() {
   const [manualCommand, setManualCommand] = useState('');
   const [manualInstallPath, setManualInstallPath] = useState('');
   const [manualExecutable, setManualExecutable] = useState('');
+  const [manualPrefix, setManualPrefix] = useState('');
+  const [manualRunner, setManualRunner] = useState('');
+  
+  const [wineRunners, setWineRunners] = useState<{name: string, path: string}[]>([]);
+  const [winePrefixes, setWinePrefixes] = useState<{name: string, path: string}[]>([]);
+  const [isInstallingProton, setIsInstallingProton] = useState(false);
+  
+  const fetchWineData = async () => {
+    try {
+      const runners = await window.nexus.wine.getRunners();
+      const prefixes = await window.nexus.wine.getPrefixes();
+      setWineRunners(runners);
+      setWinePrefixes(prefixes);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    if (showAddModal) fetchWineData();
+  }, [showAddModal]);
 
   // Metadata Search & Delete States
   const [metaSearchQuery, setMetaSearchQuery] = useState('');
@@ -260,7 +281,7 @@ export default function App() {
     e.preventDefault();
     if (!manualTitle || !manualCommand) return;
     
-    await addManualGame({
+    const newGame = await addManualGame({
       title: manualTitle,
       launchCommand: manualCommand,
       installPath: manualInstallPath || undefined,
@@ -268,12 +289,44 @@ export default function App() {
       platform: 'linux'
     });
 
+    if (newGame && (manualPrefix || manualRunner)) {
+      await window.nexus.games.updateConfiguration(newGame.id, {
+        winePrefix: manualPrefix || undefined,
+        protonVersion: manualRunner || undefined
+      });
+      // also refresh store games
+      useLauncherStore.getState().loadGames();
+    }
+
     // Reset fields
     setManualTitle('');
     setManualCommand('');
     setManualInstallPath('');
     setManualExecutable('');
+    setManualPrefix('');
+    setManualRunner('');
     setShowAddModal(false);
+  };
+
+  const handleInstallProtonGE = async () => {
+    setIsInstallingProton(true);
+    const res = await window.nexus.wine.installProtonGE();
+    if (res.success) {
+      await fetchWineData();
+    }
+    setIsInstallingProton(false);
+  };
+
+  const handleCreatePrefix = async () => {
+    const name = prompt('Enter a name for the new Wine Prefix:');
+    if (!name) return;
+    const res = await window.nexus.wine.createPrefix(name);
+    if (res.success) {
+      await fetchWineData();
+      setManualPrefix(res.path || '');
+    } else {
+      alert('Failed to create prefix: ' + res.error);
+    }
   };
 
   const handleLaunch = async (id: string) => {
@@ -1562,6 +1615,53 @@ export default function App() {
                     onChange={(e) => setManualExecutable(e.target.value)}
                     className="bg-dark-900 border border-slate-850 px-3 py-2 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent font-mono"
                   />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Wine / Proton Runner</label>
+                  <div className="flex gap-2">
+                    <select 
+                      value={manualRunner}
+                      onChange={(e) => setManualRunner(e.target.value)}
+                      className="flex-1 bg-dark-900 border border-slate-850 px-3 py-2 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent"
+                    >
+                      <option value="">Default / None</option>
+                      {wineRunners.map(r => (
+                        <option key={r.path} value={r.path}>{r.name}</option>
+                      ))}
+                    </select>
+                    <button 
+                      type="button" 
+                      onClick={handleInstallProtonGE}
+                      disabled={isInstallingProton}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-white rounded-lg whitespace-nowrap transition-colors disabled:opacity-50"
+                    >
+                      {isInstallingProton ? 'Downloading...' : 'Install Proton-GE'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Wine Prefix</label>
+                  <div className="flex gap-2">
+                    <select 
+                      value={manualPrefix}
+                      onChange={(e) => setManualPrefix(e.target.value)}
+                      className="flex-1 bg-dark-900 border border-slate-850 px-3 py-2 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent"
+                    >
+                      <option value="">Default / None</option>
+                      {winePrefixes.map(p => (
+                        <option key={p.path} value={p.path}>{p.name}</option>
+                      ))}
+                    </select>
+                    <button 
+                      type="button" 
+                      onClick={handleCreatePrefix}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-white rounded-lg whitespace-nowrap transition-colors"
+                    >
+                      Create Prefix
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 mt-4 border-t border-slate-850 pt-4">

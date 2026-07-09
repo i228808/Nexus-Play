@@ -23,6 +23,7 @@ import {
   stopGame
 } from './services/gameService.ts';
 import { getAssetCacheDir } from './services/metadataService.ts';
+import { getProtonRunners, getWinePrefixes, createWinePrefix, installLatestProtonGE } from './services/wineService.ts';
 import { getControllerBatteryInfo } from './services/batteryService.ts';
 import { initDiscordRpc } from './services/discordRpc.ts';
 import { autoUpdater } from 'electron-updater';
@@ -250,6 +251,19 @@ app.whenReady().then(() => {
       return dialog.showOpenDialog(mainWindow, options);
     }
     return dialog.showOpenDialog(options);
+  });
+
+  ipcMain.handle('wine:getRunners', async () => {
+    return getProtonRunners();
+  });
+  ipcMain.handle('wine:getPrefixes', async () => {
+    return getWinePrefixes();
+  });
+  ipcMain.handle('wine:createPrefix', async (_, name: string) => {
+    return createWinePrefix(name);
+  });
+  ipcMain.handle('wine:installProtonGE', async () => {
+    return installLatestProtonGE();
   });
 
   createWindow();

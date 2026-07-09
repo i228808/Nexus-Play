@@ -52,8 +52,8 @@ interface LauncherState {
     launchCommand: string;
     installPath?: string;
     executablePath?: string;
-    platform?: Game["platform"];
-  }) => Promise<void>;
+    platform?: 'linux' | 'windows' | 'emulated' | 'web';
+  }) => Promise<Game | undefined>;
   loadLogs: (file?: 'main' | 'scanner' | 'launcher' | 'metadata') => Promise<void>;
   loadControllers: () => Promise<void>;
   deleteGame: (id: string) => Promise<{ success: boolean; error?: string }>;
@@ -194,8 +194,9 @@ export const useLauncherStore = create<LauncherState>((set, get) => ({
 
   addManualGame: async (gameData) => {
     try {
-      await window.nexus.games.addManual(gameData);
+      const newGame = await window.nexus.games.addManual(gameData);
       await get().loadGames();
+      return newGame;
     } catch (err) {
       console.error('Failed to add manual game', err);
     }
@@ -298,6 +299,7 @@ interface NexusAPI {
     delete(id: string): Promise<{ success: boolean; error?: string }>;
     searchMetadata(query: string): Promise<{ id: number; name: string; releaseDate?: string; types: string[] }[]>;
     applyMetadata(gameId: string, sgdbGameId: number, gameTitle: string): Promise<{ success: boolean; error?: string }>;
+    updateConfiguration(gameId: string, config: { winePrefix?: string; protonVersion?: string }): Promise<{ success: boolean; error?: string }>;
     updateTitle(id: string, title: string): Promise<{ success: boolean; error?: string }>;
     install(id: string): Promise<{ success: boolean; error?: string }>;
     uninstall(id: string): Promise<{ success: boolean; error?: string }>;
@@ -308,6 +310,15 @@ interface NexusAPI {
   };
   logs: {
     get(file: 'main' | 'scanner' | 'launcher' | 'metadata'): Promise<string>;
+  };
+  dialog: {
+    showOpenDialog: (options: any) => Promise<any>;
+  };
+  wine: {
+    getRunners: () => Promise<{ name: string; path: string }[]>;
+    getPrefixes: () => Promise<{ name: string; path: string }[]>;
+    createPrefix: (name: string) => Promise<{ success: boolean; path?: string; error?: string }>;
+    installProtonGE: () => Promise<{ success: boolean; name?: string; error?: string }>;
   };
   controllers: {
     getBatteryInfo(): Promise<ControllerBatteryInfo[]>;
