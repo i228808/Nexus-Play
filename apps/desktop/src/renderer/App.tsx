@@ -108,6 +108,10 @@ export default function App() {
     if (showAddModal) fetchWineData();
   }, [showAddModal]);
 
+  useEffect(() => {
+    window.nexus.setFullscreen(consoleMode).catch(console.error);
+  }, [consoleMode]);
+
   // Metadata Search & Delete States
   const [metaSearchQuery, setMetaSearchQuery] = useState('');
   const [metaSearchResults, setMetaSearchResults] = useState<{ id: number; name: string; releaseDate?: string }[]>([]);

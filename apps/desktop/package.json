@@ -16,7 +16,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "package": "npm run build && electron-builder",
+    "package": "bun run build && electron-builder",
     "db:generate": "drizzle-kit generate:sqlite",
     "db:push": "drizzle-kit push:sqlite"
   },
@@ -55,6 +55,7 @@
     "appId": "org.nexusplay.launcher",
     "productName": "Nexus Play",
     "electronVersion": "29.4.6",
+    "npmRebuild": false,
     "directories": {
       "output": "dist"
     },
@@ -65,9 +66,7 @@
     ],
     "linux": {
       "target": [
-        "AppImage",
-        "pacman",
-        "tar.gz"
+        "pacman"
       ],
       "category": "Game"
     },
