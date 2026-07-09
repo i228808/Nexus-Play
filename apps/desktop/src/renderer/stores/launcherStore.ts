@@ -297,6 +297,7 @@ interface NexusAPI {
   controllers: {
     getBatteryInfo(): Promise<ControllerBatteryInfo[]>;
   };
+  setFullscreen: (isFullscreen: boolean) => Promise<void>;
 }
 
 declare global {

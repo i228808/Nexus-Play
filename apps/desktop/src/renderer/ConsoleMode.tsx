@@ -201,12 +201,12 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
   // Auto-scroll focused card manually without affecting parent container bounds
   useEffect(() => {
     // Set Fullscreen on mount, restore on unmount
-    if (window.api && window.api.setFullscreen) {
-      window.api.setFullscreen(true);
+    if (window.nexus && window.nexus.setFullscreen) {
+      window.nexus.setFullscreen(true);
     }
     return () => {
-      if (window.api && window.api.setFullscreen) {
-        window.api.setFullscreen(false);
+      if (window.nexus && window.nexus.setFullscreen) {
+        window.nexus.setFullscreen(false);
       }
     };
   }, []);
