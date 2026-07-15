@@ -5,6 +5,7 @@ export interface Game {
   source: "steam" | "epic" | "legendary" | "heroic" | "lutris" | "bottles" | "flatpak" | "native" | "rom" | "manual";
   externalId?: string;
   launchCommand?: string;
+  launchOptions?: string;
   installPath?: string;
   executablePath?: string;
   winePrefix?: string;

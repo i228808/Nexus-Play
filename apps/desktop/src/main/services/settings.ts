@@ -32,7 +32,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   ryujinxPath: 'ryujinx',
   yuzuPath: 'yuzu',
   pcsx2Path: 'pcsx2-qt',
-  accentColor: '#3b82f6', // blue-500
+  accentColor: '#e7e9e5',
   backgroundImage: ''
 };
 

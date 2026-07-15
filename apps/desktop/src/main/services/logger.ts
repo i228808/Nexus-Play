@@ -25,12 +25,9 @@ export function log(file: 'main' | 'scanner' | 'launcher' | 'metadata', message:
   
   try {
     fs.appendFileSync(filePath, logLine);
-  } catch (err) {
-    console.error(`Failed to write to log file: ${filePath}`, err);
+  } catch {
+    // Logging is best-effort; a detached AppImage may not have a usable terminal.
   }
-  
-  // Also echo to node console
-  console.log(`[${file.toUpperCase()}] [${level}] ${cleanMsg}`);
 }
 
 export function readLogs(file: 'main' | 'scanner' | 'launcher' | 'metadata', linesCount = 150): string {

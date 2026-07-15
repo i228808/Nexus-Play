@@ -30,8 +30,6 @@ export function initDatabase() {
   }
 
   const dbPath = path.join(userDataPath, 'library.db');
-  console.log(`[Database] Initializing SQLite database at: ${dbPath}`);
-
   const rawDb = new Database(dbPath);
   
   // Enable foreign keys
@@ -48,6 +46,7 @@ export function initDatabase() {
       install_path TEXT,
       executable_path TEXT,
       launch_command TEXT,
+      launch_options TEXT,
       platform TEXT DEFAULT 'linux',
       wine_prefix TEXT,
       proton_version TEXT,
@@ -128,6 +127,10 @@ export function initDatabase() {
   
   try {
     rawDb.exec(`ALTER TABLE games ADD COLUMN proton_version TEXT;`);
+  } catch (e) { /* Column already exists */ }
+
+  try {
+    rawDb.exec(`ALTER TABLE games ADD COLUMN launch_options TEXT;`);
   } catch (e) { /* Column already exists */ }
 
   dbInstance = drizzle(rawDb, { schema });

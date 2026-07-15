@@ -50,6 +50,7 @@ interface LauncherState {
   addManualGame: (gameData: {
     title: string;
     launchCommand: string;
+    launchOptions?: string;
     installPath?: string;
     executablePath?: string;
     platform?: 'linux' | 'windows' | 'emulated' | 'web';
@@ -59,7 +60,7 @@ interface LauncherState {
   deleteGame: (id: string) => Promise<{ success: boolean; error?: string }>;
   searchMetadata: (query: string) => Promise<{ id: number; name: string; releaseDate?: string; types: string[] }[]>;
   applyMetadata: (gameId: string, sgdbGameId: number, gameTitle: string) => Promise<{ success: boolean; error?: string }>;
-  updateConfiguration: (gameId: string, config: { winePrefix?: string; protonVersion?: string }) => Promise<{ success: boolean; error?: string }>;
+  updateConfiguration: (gameId: string, config: { winePrefix?: string; protonVersion?: string; launchOptions?: string }) => Promise<{ success: boolean; error?: string }>;
   updateTitle: (id: string, title: string) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -139,7 +140,7 @@ export const useLauncherStore = create<LauncherState>((set, get) => ({
     try {
       const res = await window.nexus.games.launch(id);
       if (res.success) {
-        // If minimized, it will happen on the main process side
+        // Window hiding/showing is handled on the main process side
         // Refresh games list later to catch playtimes
         setTimeout(() => get().loadGames(), 5000);
       }
@@ -270,7 +271,7 @@ export const useLauncherStore = create<LauncherState>((set, get) => ({
     }
   },
   
-  updateConfiguration: async (gameId: string, config: { winePrefix?: string; protonVersion?: string }) => {
+  updateConfiguration: async (gameId: string, config: { winePrefix?: string; protonVersion?: string; launchOptions?: string }) => {
     try {
       // @ts-ignore
       const res = await window.nexus.games.updateConfiguration(gameId, config);
@@ -299,7 +300,7 @@ interface NexusAPI {
     delete(id: string): Promise<{ success: boolean; error?: string }>;
     searchMetadata(query: string): Promise<{ id: number; name: string; releaseDate?: string; types: string[] }[]>;
     applyMetadata(gameId: string, sgdbGameId: number, gameTitle: string): Promise<{ success: boolean; error?: string }>;
-    updateConfiguration(gameId: string, config: { winePrefix?: string; protonVersion?: string }): Promise<{ success: boolean; error?: string }>;
+    updateConfiguration(gameId: string, config: { winePrefix?: string; protonVersion?: string; launchOptions?: string }): Promise<{ success: boolean; error?: string }>;
     updateTitle(id: string, title: string): Promise<{ success: boolean; error?: string }>;
     install(id: string): Promise<{ success: boolean; error?: string }>;
     uninstall(id: string): Promise<{ success: boolean; error?: string }>;
@@ -324,6 +325,7 @@ interface NexusAPI {
     getBatteryInfo(): Promise<ControllerBatteryInfo[]>;
   };
   setFullscreen: (isFullscreen: boolean) => Promise<void>;
+  onGameStopped(callback: (gameId: string) => void): () => void;
 }
 
 declare global {

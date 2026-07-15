@@ -1,0 +1,31 @@
+LIBRARY libScePad.dll
+EXPORTS
+  scePadClose @1
+  scePadGetContainerIdInformation @2
+  scePadGetControllerBusType @3
+  scePadGetControllerInformation @4
+  scePadGetControllerType @5
+  scePadGetHandle @6
+  scePadGetJackState @7
+  scePadGetTriggerEffectState @8
+  scePadInit @9
+  scePadInit2 @10
+  scePadInit3 @11
+  scePadIsControllerUpdateRequired @12
+  scePadIsSupportedAudioFunction @13
+  scePadOpen @14
+  scePadRead @15
+  scePadReadState @16
+  scePadResetLightBar @17
+  scePadResetOrientation @18
+  scePadSetAngularVelocityBiasCorrectionState @19
+  scePadSetAngularVelocityDeadbandState @20
+  scePadSetAudioOutPath @21
+  scePadSetLightBar @22
+  scePadSetMotionSensorState @23
+  scePadSetTiltCorrectionState @24
+  scePadSetTriggerEffect @25
+  scePadSetVibration @26
+  scePadSetVibrationMode @27
+  scePadSetVolumeGain @28
+  scePadTerminate @29

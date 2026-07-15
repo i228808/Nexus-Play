@@ -9,6 +9,7 @@ export const games = sqliteTable('games', {
   installPath: text('install_path'),
   executablePath: text('executable_path'),
   launchCommand: text('launch_command'),
+  launchOptions: text('launch_options'),
   platform: text('platform').default('linux'), // 'linux' | 'windows' | 'emulated' | 'web'
   winePrefix: text('wine_prefix'),
   protonVersion: text('proton_version'),

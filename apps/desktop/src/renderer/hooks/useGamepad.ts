@@ -47,6 +47,25 @@ const DEADZONE = 0.40;
 const INITIAL_REPEAT_DELAY = 320;
 const REPEAT_INTERVAL = 100;
 
+function pulse(gp: Gamepad, action: GamepadAction) {
+  const actuator = (gp as Gamepad & {
+    vibrationActuator?: { playEffect?: (type: 'dual-rumble', params: GamepadEffectParameters) => Promise<unknown>; pulse?: (value: number, duration: number) => Promise<unknown> };
+    hapticActuators?: Array<{ pulse?: (value: number, duration: number) => Promise<unknown> }>;
+  }).vibrationActuator;
+  const strong = action === 'confirm' || action === 'back' || action === 'start' || action === 'home';
+  actuator?.playEffect?.('dual-rumble', {
+    duration: strong ? 38 : 22,
+    startDelay: 0,
+    strongMagnitude: strong ? 0.32 : 0.12,
+    weakMagnitude: strong ? 0.22 : 0.08,
+  }).catch(() => {});
+  if (!actuator?.playEffect) {
+    (gp as Gamepad & { hapticActuators?: Array<{ pulse?: (value: number, duration: number) => Promise<unknown> }> })
+      .hapticActuators?.[0]?.pulse?.(strong ? 0.32 : 0.12, strong ? 38 : 22)
+      .catch(() => {});
+  }
+}
+
 export function useGamepad({ onAction, enabled = true }: GamepadHandlers) {
   // Store everything in refs so poll closure never goes stale
   const onActionRef = useRef(onAction);
@@ -59,8 +78,9 @@ export function useGamepad({ onAction, enabled = true }: GamepadHandlers) {
   const repeatTimers   = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
-    const fire = (action: GamepadAction) => {
+    const fire = (gp: Gamepad, action: GamepadAction) => {
       if (!enabledRef.current) return;
+      pulse(gp, action);
       onActionRef.current(action);
     };
 
@@ -69,13 +89,13 @@ export function useGamepad({ onAction, enabled = true }: GamepadHandlers) {
       if (t !== undefined) { clearTimeout(t); repeatTimers.current.delete(key); }
     };
 
-    const scheduleRepeat = (key: string, action: GamepadAction, first: boolean) => {
+    const scheduleRepeat = (gp: Gamepad, key: string, action: GamepadAction, first: boolean) => {
       if (NO_REPEAT_ACTIONS.has(action)) return; // shoulder buttons: one-shot only
       const delay = first ? INITIAL_REPEAT_DELAY : REPEAT_INTERVAL;
       const t = setTimeout(() => {
         if (pressedRef.current.has(key)) {
-          fire(action);
-          scheduleRepeat(key, action, false);
+          fire(gp, action);
+          scheduleRepeat(gp, key, action, false);
         }
       }, delay);
       repeatTimers.current.set(key, t);
@@ -107,8 +127,8 @@ export function useGamepad({ onAction, enabled = true }: GamepadHandlers) {
             
             lastActionTimes.set(key, now);
             pressedRef.current.add(key);
-            fire(action);
-            scheduleRepeat(key, action, true);
+            fire(gp, action);
+            scheduleRepeat(gp, key, action, true);
           } else if (!pressed && pressedRef.current.has(key)) {
             pressedRef.current.delete(key);
             clearRepeat(key);
@@ -135,8 +155,8 @@ export function useGamepad({ onAction, enabled = true }: GamepadHandlers) {
             
             lastActionTimes.set(key, now);
             pressedRef.current.add(key);
-            fire(action);
-            scheduleRepeat(key, action, true);
+            fire(gp, action);
+            scheduleRepeat(gp, key, action, true);
           } else if (!active && pressedRef.current.has(key)) {
             pressedRef.current.delete(key);
             clearRepeat(key);

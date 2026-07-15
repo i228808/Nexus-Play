@@ -9,11 +9,11 @@
     "packages/plugins"
   ],
   "scripts": {
-    "dev": "bun --cwd apps/desktop run dev",
-    "build": "bun --cwd apps/desktop run build",
-    "package": "bun --cwd apps/desktop run package",
-    "db:generate": "bun --cwd apps/desktop run db:generate",
-    "db:push": "bun --cwd apps/desktop run db:push"
+    "dev": "bun run --cwd apps/desktop dev",
+    "build": "bun run --cwd apps/desktop build",
+    "package": "bun run --cwd apps/desktop package",
+    "db:generate": "bun run --cwd apps/desktop db:generate",
+    "db:push": "bun run --cwd apps/desktop db:push"
   },
   "devDependencies": {
     "typescript": "^5.3.3"

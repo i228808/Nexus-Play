@@ -76,7 +76,7 @@ export class LegendaryPlugin implements LibraryPlugin {
     });
   }
 
-  async launch(game: Game, _profile?: LaunchProfile): Promise<LaunchResult> {
+  async launch(game: Game, profile?: LaunchProfile): Promise<LaunchResult> {
     if (!game.externalId) {
       return { success: false, error: 'Legendary App Name is missing' };
     }
@@ -87,6 +87,13 @@ export class LegendaryPlugin implements LibraryPlugin {
     
     // Check if we should append arguments or environment variables from profile
     const env = { ...process.env };
+    if (profile?.environmentJson) {
+      try {
+        Object.assign(env, JSON.parse(profile.environmentJson));
+      } catch (err) {
+        console.error('[Legendary Plugin] Failed to parse profile environment variables', err);
+      }
+    }
     
     if (game.winePrefix) {
       args.push('--wine-prefix', game.winePrefix);
@@ -107,11 +114,9 @@ export class LegendaryPlugin implements LibraryPlugin {
 
       child.unref(); // let parent process continue running independently
 
-      if (child.pid) {
-        return { success: true, pid: child.pid };
-      } else {
-        return { success: false, error: 'Failed to retrieve process ID' };
-      }
+      // Legendary exits after it hands the game to Wine/Proton, so its PID is
+      // not the game PID. The launcher uses a game-specific process matcher.
+      return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
     }

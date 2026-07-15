@@ -2,22 +2,187 @@ import { getDb } from '../db/index.ts';
 import { games, gameMetadata, launchProfiles } from '../db/schema.ts';
 import { eq, sql, and, notInArray } from 'drizzle-orm';
 import { SteamPlugin, LegendaryPlugin, ManualPlugin, EmulatorPlugin } from '@nexus-play/plugins';
-import { Game, normalizeTitle } from '@nexus-play/core';
+import { Game, LaunchProfile, normalizeTitle } from '@nexus-play/core';
 import { log } from './logger.ts';
-import { exec } from 'node:child_process';
+import { exec, execFile } from 'node:child_process';
 import { fetchAndCacheMetadata } from './metadataService.ts';
 import { BrowserWindow } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
 import { getSettings } from './settings.ts';
 import { setPlayingPresence, setIdlePresence } from './discordRpc.ts';
 import { applyMetadataFromSgdbId } from './metadataService.ts';
+import { configureControllers } from './controllerService.ts';
 
 const steamPlugin = new SteamPlugin();
 const legendaryPlugin = new LegendaryPlugin();
 const manualPlugin = new ManualPlugin();
 
 // Map of game IDs that are currently running and tracked
-const runningGames = new Map<string, { startTime: number; timer: NodeJS.Timeout; pid?: number }>();
+const runningGames = new Map<string, { startTime: number; timer: NodeJS.Timeout; pid?: number; processTarget: string }>();
+
+/** Notify all renderer windows that a game stopped automatically */
+function notifyGameStopped(gameId: string) {
+  log('launcher', `Game ${gameId} stopped — notifying UI`);
+  setIdlePresence();
+  try {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send('game:stopped', gameId);
+    }
+  } catch (e) {
+    // Window may already be closed
+  }
+}
+
+function getProcessTarget(game: Game): string {
+  const candidate = game.executablePath || game.installPath || game.title;
+  return candidate.split(/[\\/]/).pop() || candidate;
+}
+
+function needsDualSenseXInputFallback(game: Game): boolean {
+  const executable = (game.executablePath || '').toLowerCase();
+  const title = normalizeTitle(game.title);
+  return executable.includes('sekiro') || title.includes('sekiro');
+}
+
+function needsDualSenseHapticsRouting(game: Game): boolean {
+  const executable = (game.executablePath || '').toLowerCase();
+  return executable.includes('gowr') || normalizeTitle(game.title).includes('god of war ragnarok');
+}
+
+function needsDualSenseHybridInput(game: Game): boolean {
+  const match = [
+    game.id,
+    game.title,
+    game.executablePath,
+    game.launchCommand,
+  ].filter(Boolean).join(' ').toLowerCase().replace(/\s+/g, '');
+  return match.includes('hogwartslegacy');
+}
+
+function runPactl(args: string[]): Promise<string> {
+  return new Promise((resolve) => {
+    execFile('pactl', args, (error, stdout) => {
+      resolve(error ? '' : stdout);
+    });
+  });
+}
+
+async function getDualSenseSink(): Promise<string> {
+  const sinks = await runPactl(['list', 'short', 'sinks']);
+  return sinks
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/))
+    .find((parts) => parts[1]?.toLowerCase().includes('dualsense') || parts[1]?.toLowerCase().includes('sony_interactive_entertainment'))?.[1] || '';
+}
+
+async function getDefaultSpeakerSink(dualSenseSink: string): Promise<string> {
+  const info = await runPactl(['info']);
+  const defaultSink = info.match(/^Default Sink:\s*(.+)$/m)?.[1]?.trim() || '';
+  if (defaultSink && defaultSink !== dualSenseSink) return defaultSink;
+
+  const sinks = await runPactl(['list', 'short', 'sinks']);
+  return sinks
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/))
+    .find((parts) => parts[1] && parts[1] !== dualSenseSink)?.[1] || '';
+}
+
+async function routeDualSenseHaptics(game: Game) {
+  if (!needsDualSenseHapticsRouting(game)) return;
+
+  const dualSenseSink = await getDualSenseSink();
+  if (!dualSenseSink) return;
+
+  await runPactl(['set-sink-mute', dualSenseSink, '0']);
+  const speakerSink = await getDefaultSpeakerSink(dualSenseSink);
+  if (!speakerSink) return;
+
+  const inputs = await runPactl(['list', 'sink-inputs']);
+  const gowInputs = inputs
+    .split(/\n(?=Sink Input #)/)
+    .filter((block) => /application\.name = "GoWR"/.test(block))
+    .map((block) => ({
+      id: block.match(/Sink Input #(\d+)/)?.[1] || '',
+      channels: Number(block.match(/Sample Specification: .*?(\d+)ch/)?.[1] || 0),
+    }))
+    .filter((input) => input.id && input.channels >= 4);
+
+  for (const input of gowInputs.slice(1)) {
+    await runPactl(['move-sink-input', input.id, speakerSink]);
+    log('launcher', `Moved GoW ${input.channels}-channel audio stream ${input.id} to speaker sink ${speakerSink}; first stream remains on DualSense`);
+  }
+}
+
+function getSteamCompatPrefix(externalId?: string): string {
+  if (!externalId) return '';
+
+  let appId = externalId;
+  if (externalId.startsWith('nonsteam-')) {
+    try {
+      appId = (BigInt(externalId.slice('nonsteam-'.length)) >> 32n).toString();
+    } catch {
+      return '';
+    }
+  }
+
+  const home = process.env.HOME || '';
+  const candidates = [
+    path.join(home, '.local', 'share', 'Steam'),
+    path.join(home, '.steam', 'steam'),
+    path.join(home, '.var', 'app', 'com.valvesoftware.Steam', '.local', 'share', 'Steam'),
+  ];
+
+  return candidates
+    .map((steamPath) => path.join(steamPath, 'steamapps', 'compatdata', appId))
+    .find((prefix) => fs.existsSync(path.join(prefix, 'pfx', 'system.reg'))) || '';
+}
+
+function escapeProcessPattern(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    try {
+      const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+      return stat.slice(stat.lastIndexOf(')') + 2).split(' ')[0] !== 'Z';
+    } catch {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+}
+
+function hasMatchingProcess(target: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile('pgrep', ['-f', escapeProcessPattern(target)], (error, stdout) => {
+      resolve(!error && Boolean(stdout.trim()));
+    });
+  });
+}
+
+function killMatchingProcess(target: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile('pkill', ['-9', '-f', escapeProcessPattern(target)], (error) => {
+      resolve(!error);
+    });
+  });
+}
+
+async function completeGameTracking(id: string) {
+  const tracked = runningGames.get(id);
+  if (!tracked) return;
+
+  clearInterval(tracked.timer);
+  runningGames.delete(id);
+  const duration = Math.floor((Date.now() - tracked.startTime) / 1000);
+  await savePlaytime(id, duration);
+  notifyGameStopped(id);
+}
 
 export async function listGames(): Promise<Game[]> {
   try {
@@ -113,6 +278,7 @@ export async function scanSources(): Promise<{ steam: number; legendary: number;
             installPath: sg.installPath,
             executablePath: sg.executablePath,
             launchCommand: sg.launchCommand,
+            launchOptions: sg.launchOptions,
             platform: sg.platform,
             installed: sg.installed,
             updatedAt: now,
@@ -127,12 +293,13 @@ export async function scanSources(): Promise<{ steam: number; legendary: number;
             installPath: sg.installPath,
             executablePath: sg.executablePath,
             launchCommand: sg.launchCommand,
+            launchOptions: sg.launchOptions,
             platform: sg.platform,
             installed: sg.installed,
             createdAt: now,
             updatedAt: now,
           });
-          
+
           // Trigger async metadata fetch in background (do not block scan)
           fetchAndCacheMetadata(id, sg.title).catch(err => {
             log('metadata', `Background fetch failed for ${sg.title}: ${err.message}`, 'WARN');
@@ -175,13 +342,14 @@ export async function scanSources(): Promise<{ steam: number; legendary: number;
         // Upsert
         const existing = await db.select().from(games).where(eq(games.id, id));
         if (existing.length > 0) {
+          const pinnedManual = existing[0].source === 'manual';
           await db.update(games).set({
             title: eg.title,
             normalizedTitle: normalized,
-            installPath: eg.installPath,
-            executablePath: eg.executablePath,
-            launchCommand: eg.launchCommand,
-            platform: eg.platform,
+            installPath: pinnedManual ? existing[0].installPath : eg.installPath,
+            executablePath: pinnedManual ? existing[0].executablePath : eg.executablePath,
+            launchCommand: pinnedManual ? existing[0].launchCommand : eg.launchCommand,
+            platform: pinnedManual ? existing[0].platform : eg.platform,
             installed: eg.installed,
             updatedAt: now,
           }).where(eq(games.id, id));
@@ -200,7 +368,7 @@ export async function scanSources(): Promise<{ steam: number; legendary: number;
             createdAt: now,
             updatedAt: now,
           });
-          
+
           // Trigger async metadata fetch in background
           fetchAndCacheMetadata(id, eg.title).catch(err => {
             log('metadata', `Background fetch failed for ${eg.title}: ${err.message}`, 'WARN');
@@ -219,7 +387,7 @@ export async function scanSources(): Promise<{ steam: number; legendary: number;
   try {
     const settings = await getSettings();
     const romDirs = settings.romDirectories ? settings.romDirectories.split(',').map(d => d.trim()).filter(Boolean) : [];
-    
+
     const emulatorPlugin = new EmulatorPlugin({
       romDirectories: romDirs,
       ryujinxPath: settings.ryujinxPath,
@@ -264,7 +432,7 @@ export async function scanSources(): Promise<{ steam: number; legendary: number;
             createdAt: now,
             updatedAt: now,
           });
-          
+
           fetchAndCacheMetadata(id, eg.title).catch(err => {
             log('metadata', `Background fetch failed for ${eg.title}: ${err.message}`, 'WARN');
           });
@@ -283,6 +451,7 @@ export async function scanSources(): Promise<{ steam: number; legendary: number;
 export async function addManualGame(gameData: {
   title: string;
   launchCommand: string;
+  launchOptions?: string;
   installPath?: string;
   executablePath?: string;
   platform?: Game["platform"];
@@ -298,6 +467,7 @@ export async function addManualGame(gameData: {
     normalizedTitle: normalized,
     source: 'manual' as const,
     launchCommand: gameData.launchCommand,
+    launchOptions: gameData.launchOptions || null,
     installPath: gameData.installPath || null,
     executablePath: gameData.executablePath || null,
     platform: gameData.platform || 'linux',
@@ -325,7 +495,7 @@ export async function toggleFavorite(id: string): Promise<boolean> {
   const db = getDb();
   const rows = await db.select().from(games).where(eq(games.id, id));
   if (rows.length === 0) return false;
-  
+
   const newValue = !rows[0].favorite;
   await db.update(games).set({ favorite: newValue }).where(eq(games.id, id));
   log('main', `Game ${id} favorite toggled to ${newValue}`);
@@ -359,12 +529,39 @@ export async function launchGame(id: string): Promise<{ success: boolean; error?
   }
 
   let result;
+
+  let tempProfile: LaunchProfile | undefined = undefined;
+  if (game.source === 'steam' || game.source === 'manual' || game.source === 'legendary') {
+    const prefix = game.source === 'steam'
+      ? getSteamCompatPrefix(game.externalId)
+      : game.winePrefix || path.join(process.env.HOME || '/tmp', '.local', 'share', 'nexus-play', 'prefixes', 'default');
+    const extraEnv = await configureControllers(prefix, {
+      forceXInput: needsDualSenseXInputFallback(game),
+      hybridXInput: needsDualSenseHybridInput(game),
+    });
+    if (needsDualSenseHapticsRouting(game)) {
+      const dualSenseSink = await getDualSenseSink();
+      if (dualSenseSink) extraEnv.PULSE_SINK = dualSenseSink;
+    }
+    if (Object.keys(extraEnv).length > 0) {
+      tempProfile = {
+        id: 'temp-profile',
+        gameId: id,
+        name: 'Temp Profile',
+        environmentJson: JSON.stringify(extraEnv),
+        isDefault: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      } as unknown as LaunchProfile;
+    }
+  }
+
   if (game.source === 'steam') {
-    result = await steamPlugin.launch(game);
+    result = await steamPlugin.launch(game, tempProfile);
   } else if (game.source === 'legendary') {
-    result = await legendaryPlugin.launch(game);
+    result = await legendaryPlugin.launch(game, tempProfile);
   } else if (game.source === 'manual') {
-    result = await manualPlugin.launch(game);
+    result = await manualPlugin.launch(game, tempProfile);
   } else if (game.source === 'rom') {
     const settings = await getSettings();
     const romDirs = settings.romDirectories ? settings.romDirectories.split(',').map(d => d.trim()).filter(Boolean) : [];
@@ -374,7 +571,7 @@ export async function launchGame(id: string): Promise<{ success: boolean; error?
       yuzuPath: settings.yuzuPath,
       pcsx2Path: settings.pcsx2Path,
     });
-    result = await emulatorPlugin.launch(game);
+    result = await emulatorPlugin.launch(game, tempProfile);
   } else {
     return { success: false, error: `Unsupported game source: ${game.source}` };
   }
@@ -385,74 +582,42 @@ export async function launchGame(id: string): Promise<{ success: boolean; error?
   }
 
   log('launcher', `Successfully triggered launch for ${game.title}`);
-  
-  // Track Playtime
-  const startTime = Date.now();
-  
-  // Setup PID or process grep tracking
-  let timer: NodeJS.Timeout;
-  if (result.pid) {
-    const pid = result.pid;
-    log('launcher', `Tracking ${game.title} via PID ${pid}`);
-    timer = setInterval(async () => {
-      try {
-        // Send signal 0 to check if process exists
-        process.kill(pid, 0);
-      } catch (err) {
-        // Process is dead
-        clearInterval(timer);
-        runningGames.delete(id);
-        const duration = Math.floor((Date.now() - startTime) / 1000);
-        await savePlaytime(id, duration);
-      }
-    }, 3000);
-  } else {
-    // Steam launch or similar without a return PID. Fallback to process grep on installPath directory name.
-    const installDirName = game.installPath ? path.basename(game.installPath) : '';
-    if (installDirName) {
-      log('launcher', `Tracking ${game.title} via process grep search for folder name: "${installDirName}"`);
-      
-      let missedCount = 0;
-      timer = setInterval(() => {
-        // We grep for the install directory name in the process tree.
-        // Use a bracket trick to prevent pgrep from matching its own command string
-        const safeGrep = installDirName.length > 0 
-          ? `[${installDirName[0]}]${installDirName.substring(1)}`
-          : installDirName;
-        exec(`pgrep -f "${safeGrep}"`, async (err, stdout) => {
-          if (err || !stdout.trim()) {
-            // Give it 3 checks (9 seconds) to buffer load times
-            missedCount++;
-            if (missedCount >= 3) {
-              clearInterval(timer);
-              runningGames.delete(id);
-              const duration = Math.floor((Date.now() - startTime) / 1000);
-              await savePlaytime(id, duration);
-            }
-          } else {
-            missedCount = 0; // Reset, process is currently alive
-          }
+  if (needsDualSenseHapticsRouting(game)) {
+    [5000, 10000, 15000].forEach((delay) => {
+      setTimeout(() => {
+        routeDualSenseHaptics(game).catch((err: any) => {
+          log('launcher', `DualSense haptics routing failed: ${err.message}`, 'WARN');
         });
-      }, 3000);
-    } else {
-      // Complete fallback
-      log('launcher', `No PID and no installPath for ${game.title}. Tracking default 1-hour session unless stopped.`, 'WARN');
-      timer = setInterval(async () => {
-        // Simple session stop check (e.g. if we can't grep it, we just let it run or stop it in UI)
-        // For MVP, if there is no path, we check if wine processes are active if platform is windows
-        exec('pgrep -i wine || pgrep -f proton', async (err, stdout) => {
-          if (err || !stdout.trim()) {
-            clearInterval(timer);
-            runningGames.delete(id);
-            const duration = Math.floor((Date.now() - startTime) / 1000);
-            await savePlaytime(id, duration);
-          }
-        });
-      }, 5000);
-    }
+      }, delay);
+    });
   }
 
-  runningGames.set(id, { startTime, timer, pid: result.pid });
+  // Track Playtime
+  const startTime = Date.now();
+
+  const processTarget = getProcessTarget(game);
+  let missedCount = 0;
+  let checkCount = 0;
+  log('launcher', `Tracking ${game.title}${result.pid ? ` via PID ${result.pid}` : ''} with process target "${processTarget}"`);
+
+  const timer = setInterval(async () => {
+    checkCount++;
+    const pidAlive = result.pid ? isPidAlive(result.pid) : false;
+    const gameAlive = pidAlive || await hasMatchingProcess(processTarget);
+
+    if (gameAlive) {
+      missedCount = 0;
+      return;
+    }
+
+    missedCount++;
+    const threshold = checkCount < 10 ? 5 : 3;
+    if (missedCount >= threshold) {
+      await completeGameTracking(id);
+    }
+  }, 3000);
+
+  runningGames.set(id, { startTime, timer, pid: result.pid, processTarget });
 
   // Update Discord RPC
   setPlayingPresence(game.title);
@@ -477,9 +642,9 @@ export async function stopGame(id: string): Promise<{ success: boolean; error?: 
 
   const game = gameRows[0] as Game;
 
-  // Try to kill by PID if available, else fallback to pkill -f
+  // Try to kill the tracked process group first, then the game-specific matcher.
   let killed = false;
-  
+
   if (gameData.pid) {
     try {
       // Try killing the process group (if detached)
@@ -493,29 +658,18 @@ export async function stopGame(id: string): Promise<{ success: boolean; error?: 
         log('launcher', `Failed to kill PID ${gameData.pid}`, 'WARN');
       }
     }
-  } 
-  
-  if (!killed && game.installPath) {
-    const installDirName = path.basename(game.installPath);
-    if (installDirName) {
-      const safeGrep = `[${installDirName[0]}]${installDirName.substring(1)}`;
-      exec(`pkill -f "${safeGrep}" -9`);
-      killed = true;
-    }
+  }
+
+  if (!killed && gameData.processTarget) {
+    killed = await killMatchingProcess(gameData.processTarget);
   }
 
   if (!killed) {
-    // Blanket kill for proton/wine if nothing else
-    exec('pkill -i wine -9 || pkill -f proton -9');
+    return { success: false, error: `Could not safely identify a process for ${game.title}` };
   }
 
   // Finalize tracking
-  clearInterval(gameData.timer);
-  runningGames.delete(id);
-  const duration = Math.floor((Date.now() - gameData.startTime) / 1000);
-  await savePlaytime(id, duration);
-
-  setIdlePresence();
+  await completeGameTracking(id);
 
   return { success: true };
 }
@@ -525,6 +679,13 @@ function restoreMainWindow() {
     const windows = BrowserWindow.getAllWindows();
     if (windows.length > 0) {
       const mainWin = windows[0];
+      // show() is needed because we use hide() (not minimize()) when
+      // launching games — this works reliably on all compositors
+      // including Wayland/tiling ones like niri where minimize()
+      // doesn't remove the window from the workspace.
+      if (!mainWin.isVisible()) {
+        mainWin.show();
+      }
       if (mainWin.isMinimized()) {
         mainWin.restore();
       }
@@ -542,7 +703,7 @@ async function savePlaytime(gameId: string, durationSeconds: number) {
 
   const db = getDb();
   log('launcher', `Game ${gameId} exited. Played for ${durationSeconds} seconds.`);
-  
+
   try {
     await db.update(games).set({
       playtimeSeconds: sql`${games.playtimeSeconds} + ${durationSeconds}`,
@@ -668,15 +829,16 @@ export async function updateGameTitle(
 
 export async function updateGameConfiguration(
   id: string,
-  config: { winePrefix?: string; protonVersion?: string }
+  config: { winePrefix?: string; protonVersion?: string; launchOptions?: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const db = getDb();
     const now = new Date().toISOString();
-    await db.update(games).set({ 
-      winePrefix: config.winePrefix, 
+    await db.update(games).set({
+      winePrefix: config.winePrefix,
       protonVersion: config.protonVersion,
-      updatedAt: now 
+      launchOptions: config.launchOptions,
+      updatedAt: now
     }).where(eq(games.id, id));
     log('main', `Successfully updated configuration of game ${id}`);
     return { success: true };

@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('nexus', {
     addManual: (gameData: {
       title: string;
       launchCommand: string;
+      launchOptions?: string;
       installPath?: string;
       executablePath?: string;
       platform?: 'linux' | 'windows' | 'emulated' | 'web';
@@ -20,7 +21,7 @@ contextBridge.exposeInMainWorld('nexus', {
     searchMetadata: (query: string) => ipcRenderer.invoke('games:searchMetadata', query),
     applyMetadata: (gameId: string, sgdbGameId: number, gameTitle: string) =>
       ipcRenderer.invoke('games:applyMetadata', gameId, sgdbGameId, gameTitle),
-    updateConfiguration: (gameId: string, config: { winePrefix?: string; protonVersion?: string }) => 
+    updateConfiguration: (gameId: string, config: { winePrefix?: string; protonVersion?: string; launchOptions?: string }) =>
       ipcRenderer.invoke('games:updateConfiguration', gameId, config),
     updateTitle: (id: string, title: string) =>
       ipcRenderer.invoke('games:updateTitle', id, title),
@@ -47,4 +48,9 @@ contextBridge.exposeInMainWorld('nexus', {
     installProtonGE: () => ipcRenderer.invoke('wine:installProtonGE'),
   },
   setFullscreen: (isFullscreen: boolean) => ipcRenderer.invoke('window:setFullscreen', isFullscreen),
+  onGameStopped: (callback: (gameId: string) => void) => {
+    const handler = (_event: any, gameId: string) => callback(gameId);
+    ipcRenderer.on('game:stopped', handler);
+    return () => ipcRenderer.removeListener('game:stopped', handler);
+  },
 });

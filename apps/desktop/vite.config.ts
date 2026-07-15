@@ -25,7 +25,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron/main',
             rollupOptions: {
-              external: ['better-sqlite3'],
+              external: ['better-sqlite3', 'bindings', 'ws', 'bufferutil', 'utf-8-validate'],
               output: {
                 entryFileNames: 'index.js'
               }

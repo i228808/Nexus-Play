@@ -311,10 +311,10 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex flex-col overflow-hidden select-none">
+    <div className="fixed inset-0 z-50 bg-dark-900 flex flex-col overflow-hidden select-none">
 
       {/* ── Background artwork (Shared, unblurred on the right) ── */}
-      <div className="absolute inset-0 z-0 transition-all duration-700 bg-[#0a0a0a]">
+      <div className="absolute inset-0 z-0 transition-all duration-700 bg-dark-900">
         {selectedGame ? (
           <div className="absolute inset-0 transition-all duration-500 animate-fade-in">
             {/* The main background image (prefer hero, fallback to cover/poster) */}
@@ -325,8 +325,8 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
               className="absolute right-0 top-0 h-full w-[75vw] object-cover opacity-35 transition-all duration-700 scale-105"
             />
             {/* Left and bottom dark gradient overlays for maximum text contrast */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a]/85 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-dark-900 via-dark-900/85 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-dark-900 via-dark-900/40 to-transparent" />
           </div>
         ) : null}
       </div>
@@ -775,7 +775,7 @@ export default function ConsoleMode({ games, controllers, onLaunch, onStop, onIn
 
           {/* Search Overlay */}
           {view === 'search' && (
-            <div className="absolute inset-0 z-60 bg-black/95 backdrop-blur-2xl flex flex-col items-center pt-28 px-16 animate-fade-in">
+            <div className="absolute inset-0 z-60 bg-dark-900/95 backdrop-blur-2xl flex flex-col items-center pt-28 px-16 animate-fade-in">
               <div className="w-full max-w-2xl">
                 <div className="flex items-center gap-4 bg-white/[0.04] border border-white/10 rounded-2xl px-6 py-4 ring-1 ring-white/5">
                   <Search className="w-6 h-6 text-white/30 shrink-0" />

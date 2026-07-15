@@ -28,6 +28,12 @@ import { getControllerBatteryInfo } from './services/batteryService.ts';
 import { initDiscordRpc } from './services/discordRpc.ts';
 import { autoUpdater } from 'electron-updater';
 
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code !== 'EPIPE') throw error;
+  });
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -126,7 +132,7 @@ app.whenReady().then(() => {
       
       // Auto-resolve missing file extensions
       if (!fs.existsSync(absolutePath)) {
-        const extCandidates = ['.jpg', '.png', '.jpeg', '.webp'];
+        const extCandidates = ['.jpg', '.png', '.jpeg', '.webp', '.gif'];
         for (const ext of extCandidates) {
           const candidatePath = absolutePath + ext;
           if (fs.existsSync(candidatePath)) {
@@ -174,7 +180,11 @@ app.whenReady().then(() => {
     if (result.success) {
       const settings = await getSettings();
       if (settings.minimizeOnLaunch && mainWindow) {
-        mainWindow.minimize();
+        // Use hide() instead of minimize() for reliable behavior across all
+        // compositors (X11 + Wayland). On niri and other tiling Wayland
+        // compositors, minimize() does not remove the window from the
+        // workspace, so the game would be stuck behind the launcher.
+        mainWindow.hide();
       }
     }
     return result;
@@ -230,7 +240,7 @@ app.whenReady().then(() => {
     return await applyGameMetadata(gameId, sgdbGameId, gameTitle);
   });
 
-  ipcMain.handle('games:updateConfiguration', async (_, gameId: string, config: { winePrefix?: string; protonVersion?: string }) => {
+  ipcMain.handle('games:updateConfiguration', async (_, gameId: string, config: { winePrefix?: string; protonVersion?: string; launchOptions?: string }) => {
     return await updateGameConfiguration(gameId, config);
   });
 

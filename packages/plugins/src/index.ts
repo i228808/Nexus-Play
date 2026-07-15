@@ -7,6 +7,7 @@ export interface DetectedGame {
   installPath?: string;
   executablePath?: string;
   launchCommand?: string;
+  launchOptions?: string;
   platform: Game["platform"];
   installed: boolean;
 }
